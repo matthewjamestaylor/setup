@@ -1,0 +1,14 @@
+# Real configuration & secrets — never commit
+config/config.php
+
+# Transient runtime data (nothing is persisted in production)
+storage/mail/*
+!storage/mail/.gitkeep
+storage/tmp/*
+!storage/tmp/.gitkeep
+
+# Local artifacts
+*.log
+.DS_Store
+Thumbs.db
+/tests/out/
