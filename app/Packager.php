@@ -44,10 +44,14 @@ final class Packager
         $members = [];
         $members[] = ['name' => 'Employee-Information.pdf', 'src' => $pdfPath];
 
+        // AES-ZIP does not encrypt the central directory (filenames are visible
+        // without the passphrase), so member names carry the document type only
+        // — not the employee's name. The name lives inside the encrypted PDF and
+        // manifest, and in the email subject/attachment for HR routing.
         $i = 1;
         foreach ($files as $f) {
             $labelSlug = $this->slug($f['label']);
-            $name = sprintf('%02d_%s_%s.%s', $i, $labelSlug, $person, $f['ext']);
+            $name = sprintf('%02d_%s.%s', $i, $labelSlug, $f['ext']);
             $members[] = ['name' => $name, 'src' => $f['path']];
             $i++;
         }

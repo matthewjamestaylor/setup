@@ -11,6 +11,19 @@
 $scenario = $argv[1] ?? 'valid';
 $root = dirname(__DIR__);
 
+// Provide a safe development config via environment variables (read by
+// config.sample.php). No config/config.php is shipped, so nothing on disk can
+// silently weaken production.
+putenv('APP_ENV=development');
+putenv('APP_DEBUG=true');
+putenv('PACKAGE_PASSPHRASE=dev-passphrase-please-change');
+putenv('MAIL_TRANSPORT=log');
+putenv('MAIL_LOG_DIR=' . $root . '/storage/mail');
+putenv('MAIL_FROM_EMAIL=no-reply@example.test');
+putenv('HR_EMAIL=hr@example.test');
+putenv('TURNSTILE_ENABLED=false');
+putenv('MIN_SUBMIT_SECONDS=0');
+
 // --- Fixtures --------------------------------------------------------------
 $tmp = sys_get_temp_dir() . '/harness_' . bin2hex(random_bytes(3));
 mkdir($tmp, 0700, true);

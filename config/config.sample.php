@@ -107,6 +107,6 @@ return [
     // ----- Anti-spam (in addition to Turnstile) ----------------------------
     'security' => [
         'honeypot_field'    => 'company_website', // hidden; bots fill it → reject
-        'min_submit_seconds' => 8,                // faster than this ⇒ bot
+        'min_submit_seconds' => (int) env('MIN_SUBMIT_SECONDS', '8'), // faster ⇒ bot
     ],
 ];
