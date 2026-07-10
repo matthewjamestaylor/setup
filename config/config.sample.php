@@ -89,6 +89,11 @@ return [
     // Shared-host SMTP typically rejects messages larger than ~25 MB, so keep
     // the total comfortably under that after base64 overhead.
     'uploads' => [
+        // Where the short-lived working directory is created. Leave blank to use
+        // the system temp dir (falling back to storage/tmp if open_basedir
+        // blocks it). Set an absolute path if your host needs a specific dir.
+        'tmp_dir' => env('UPLOAD_TMP_DIR', ''),
+
         'max_bytes_per_file' => 8 * 1024 * 1024,    // 8 MB per document
         'max_bytes_total'    => 18 * 1024 * 1024,   // 18 MB across all documents
         // Photos/scans larger than this are downscaled to keep the email small

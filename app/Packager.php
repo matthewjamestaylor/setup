@@ -31,6 +31,9 @@ final class Packager
         if ($this->passphrase === '') {
             throw new \RuntimeException('Package passphrase is not configured.');
         }
+        if (!class_exists('ZipArchive')) {
+            throw new \RuntimeException('The PHP zip extension (ext-zip) is required to package submissions.');
+        }
 
         $person = $this->personSlug($data);
         $date   = substr((string) ($meta['reference_date'] ?? date('Y-m-d')), 0, 10);

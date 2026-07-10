@@ -174,9 +174,12 @@ final class Validator
 
                 case 'hours':
                     if (!is_numeric($val) || (float) $val < 0 || (float) $val > 168) {
+                        // Never do arithmetic on a non-numeric string (PHP 8 TypeError).
                         $this->fail($key, 'Desired hours must be between 0 and 168.');
+                        $this->data[$key] = '';
+                    } else {
+                        $this->data[$key] = (string) (0 + $val);
                     }
-                    $this->data[$key] = (string) (0 + $val);
                     break;
 
                 case 'select':
@@ -413,12 +416,18 @@ final class Validator
     private function storeImage(string $field, string $tmp, string $kind): ?array
     {
         if (!function_exists('imagecreatetruecolor')) {
-            // GD unavailable: fall back to storing the original bytes.
-            $dest = $this->workDir . '/' . $field . '.img';
+            // GD unavailable: store the original bytes with the correct label.
+            $info = @getimagesize($tmp);
+            [$ext, $mime] = match ($info[2] ?? IMAGETYPE_JPEG) {
+                IMAGETYPE_PNG => ['png', 'image/png'],
+                IMAGETYPE_GIF => ['gif', 'image/gif'],
+                default       => ['jpg', 'image/jpeg'],
+            };
+            $dest = $this->workDir . '/' . $field . '.' . $ext;
             if (!@copy($tmp, $dest)) {
                 return null;
             }
-            return ['path' => $dest, 'ext' => 'jpg', 'mime' => 'image/jpeg', 'size' => (int) filesize($dest)];
+            return ['path' => $dest, 'ext' => $ext, 'mime' => $mime, 'size' => (int) filesize($dest)];
         }
 
         $info = @getimagesize($tmp);

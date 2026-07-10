@@ -68,7 +68,10 @@ function cfg(string $path, $default = null)
 // ---------------------------------------------------------------------------
 date_default_timezone_set((string) cfg('app.timezone', 'America/Toronto'));
 
-$isDebug = (bool) cfg('app.debug', false);
+// Debug output is only ever honoured in a non-production environment, so a
+// stray app.debug=true in a production config can never leak internals.
+$isDebug = (bool) cfg('app.debug', false) && cfg('app.env', 'production') !== 'production';
+$GLOBALS['CONFIG']['app']['debug'] = $isDebug;
 error_reporting(E_ALL);
 ini_set('display_errors', $isDebug ? '1' : '0');
 ini_set('log_errors', '1');

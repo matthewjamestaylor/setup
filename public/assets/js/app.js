@@ -151,15 +151,22 @@
     return bad;
   }
 
-  function validateStep(index) {
+  function validateStep(index, silent) {
     var stepEl = steps[index];
+    // Fields are skipped by validateInput() when not visible, so a hidden step
+    // would validate as a no-op. Temporarily reveal it (synchronously, no
+    // repaint) so its fields are checked; conditionally-hidden sub-blocks
+    // (permit, N/A cert bodies, day times) stay hidden and remain skipped.
+    var wasHidden = stepEl.hidden;
+    if (wasHidden) stepEl.hidden = false;
     var ok = true, firstBad = null;
     $all('input,select,textarea', stepEl).forEach(function (input) {
       if (!validateInput(input)) { ok = false; if (!firstBad) firstBad = input; }
     });
     var custom = customStepCheck(index, stepEl);
     if (custom) { ok = false; if (!firstBad) firstBad = custom; }
-    if (!ok && firstBad && firstBad.focus) {
+    if (wasHidden) stepEl.hidden = true;
+    if (!ok && !silent && firstBad && firstBad.focus) {
       try { firstBad.focus({ preventScroll: false }); } catch (e) { firstBad.focus(); }
       firstBad.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
@@ -272,7 +279,12 @@
       if (totalUploadBytes() > MAX_TOTAL) setError(inp, 'Combined uploads exceed ' + humanSize(MAX_TOTAL) + '. Please use smaller files.');
       if (inp.name === 'headshot' && f.type.indexOf('image') === 0) {
         var pv = document.getElementById('headshotPreview');
-        if (pv) { var img = pv.querySelector('img'); img.src = URL.createObjectURL(f); pv.hidden = false; }
+        if (pv) {
+          var img = pv.querySelector('img');
+          if (img.src && img.src.indexOf('blob:') === 0) URL.revokeObjectURL(img.src);
+          img.src = URL.createObjectURL(f);
+          pv.hidden = false;
+        }
       }
     });
   });
@@ -406,12 +418,21 @@
 
   form.addEventListener('submit', function (e) {
     e.preventDefault();
-    // validate every step
+    // validate every step (silent: reveal-and-check happens inside validateStep)
     var allOk = true, jumpTo = null;
     for (var i = 0; i < total; i++) {
-      if (!validateStep(i)) { allOk = false; if (jumpTo === null) jumpTo = i; }
+      if (!validateStep(i, true)) { allOk = false; if (jumpTo === null) jumpTo = i; }
     }
     if (!allOk) { if (jumpTo !== null && jumpTo !== current) showStep(jumpTo); showFormError('Please fix the highlighted fields before submitting.'); return; }
+
+    // Enforce combined upload size (server also enforces this authoritatively).
+    if (totalUploadBytes() > MAX_TOTAL) {
+      var firstFile = $all('input[type=file]', form).filter(function (i) { return i.files && i.files.length; })[0];
+      var fstep = firstFile ? firstFile.closest('.step') : null;
+      if (fstep) showStep(parseInt(fstep.getAttribute('data-step'), 10));
+      showFormError('Your uploaded documents total more than ' + humanSize(MAX_TOTAL) + '. Please upload smaller or compressed files.');
+      return;
+    }
 
     var sd = signatureData();
     if (!sd) { showStep(total - 1); showFormError('Please add your signature.'); return; }

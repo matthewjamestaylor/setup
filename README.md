@@ -136,9 +136,11 @@ same UPPER_SNAKE_CASE name (e.g. `MAIL_PASSWORD`), which overrides the file.
 
 ## Testing / previewing
 
-Set `mail.transport = 'log'` in config. Submissions then write the complete
-message (with the encrypted attachment) to `storage/mail/*.eml` **without
-sending**. Inspect that file to confirm formatting, then switch back to `smtp`.
+Set `mail.transport = 'log'` **and** `app.env = 'development'` in config.
+Submissions then write the complete message (with the encrypted attachment) to
+`storage/mail/*.eml` **without sending**. Inspect that file to confirm
+formatting, then set `mail.transport = 'smtp'` and `app.env = 'production'`.
+(Log mode persists PII to disk, so it is refused when `app.env = 'production'`.)
 
 A CLI harness exercises the whole pipeline without a browser:
 

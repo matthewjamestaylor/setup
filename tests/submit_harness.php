@@ -85,6 +85,8 @@ if ($scenario === 'badfile') {
 $files = [
     'gov_document' => ['name' => 'id.pdf', 'type' => 'application/pdf', 'tmp_name' => $govPath, 'error' => 0, 'size' => filesize($govPath)],
     'headshot' => ['name' => 'me.jpg', 'type' => 'image/jpeg', 'tmp_name' => "$tmp/hs.jpg", 'error' => 0, 'size' => filesize("$tmp/hs.jpg")],
+    // Smart Serve certificate upload (regression test for the ss/fs key fix)
+    'smartserve_document' => ['name' => 'smartserve.pdf', 'type' => 'application/pdf', 'tmp_name' => "$tmp/gov.pdf", 'error' => 0, 'size' => filesize("$tmp/gov.pdf")],
 ];
 
 // --- Fake the request ------------------------------------------------------

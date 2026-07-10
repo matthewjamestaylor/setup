@@ -38,6 +38,9 @@ final class Mailer
                 throw new \RuntimeException("Mail is not configured (missing '{$req}'). Set it in config/config.php.");
             }
         }
+        if (!filter_var((string) ($this->hrCfg['email'] ?? ''), FILTER_VALIDATE_EMAIL)) {
+            throw new \RuntimeException('HR recipient (hr.email) is not configured or is not a valid email address.');
+        }
 
         $mail = new PHPMailer(true);
         try {
@@ -100,6 +103,11 @@ final class Mailer
             if ($transport === 'log') {
                 // Compose but do not send — write the raw message to disk so the
                 // flow can be verified before SMTP credentials are configured.
+                // This persists PII to disk, so it is dev/testing only and is
+                // refused in production.
+                if (\cfg('app.env', 'production') === 'production') {
+                    throw new \RuntimeException("mail.transport 'log' writes submissions to disk and is not permitted in production. Set mail.transport = 'smtp'.");
+                }
                 if (!$mail->preSend()) {
                     throw new \RuntimeException('Mail could not be composed: ' . $mail->ErrorInfo);
                 }
@@ -111,6 +119,7 @@ final class Mailer
                 if (@file_put_contents($file, $mail->getSentMIMEMessage()) === false) {
                     throw new \RuntimeException('Could not write the mail log file. Check mail.log_dir permissions.');
                 }
+                @chmod($file, 0600);
                 return;
             }
 

@@ -160,22 +160,42 @@ final class Support
         return $age >= $minAge && $age <= $maxAge;
     }
 
-    /** Best-effort secure delete: overwrite then unlink. */
+    /** Best-effort secure delete: overwrite the FULL length, then unlink. */
     public static function shred(string $path): void
     {
         if (!is_file($path)) {
             return;
         }
         $size = @filesize($path);
-        if ($size !== false && $size > 0 && $size < 32 * 1024 * 1024) {
+        if ($size !== false && $size > 0 && $size <= 64 * 1024 * 1024) {
             $fh = @fopen($path, 'r+b');
             if ($fh) {
-                @fwrite($fh, random_bytes(min($size, 1024 * 1024)));
+                $remaining = $size;
+                while ($remaining > 0) {
+                    $n = (int) min(1024 * 1024, $remaining);
+                    @fwrite($fh, random_bytes($n));
+                    $remaining -= $n;
+                }
                 @fflush($fh);
                 @fclose($fh);
             }
         }
         @unlink($path);
+    }
+
+    /**
+     * Remove stale working directories left behind by workers that were killed
+     * (OOM, timeout, container stop) before their shutdown handler ran.
+     */
+    public static function sweepStale(string $glob, int $maxAgeSeconds): void
+    {
+        $cutoff = time() - $maxAgeSeconds;
+        foreach (glob($glob, GLOB_ONLYDIR) ?: [] as $dir) {
+            $mt = @filemtime($dir);
+            if ($mt !== false && $mt < $cutoff) {
+                self::shredDir($dir);
+            }
+        }
     }
 
     /** Shred every file in a working directory, then remove it. */

@@ -50,8 +50,8 @@ final class FieldMap
         'gov_document' => ['label' => 'Government ID (scan/photo)',        'kind' => 'doc',   'required' => true],
         'dd_document'  => ['label' => 'Void cheque / direct deposit form', 'kind' => 'doc',   'required' => false],
         'headshot'     => ['label' => 'Headshot photograph',              'kind' => 'image', 'required' => true],
-        'ss_document'  => ['label' => 'Smart Serve certificate',          'kind' => 'doc',   'required' => false],
-        'fs_document'  => ['label' => 'Food Safety certificate',          'kind' => 'doc',   'required' => false],
+        'smartserve_document' => ['label' => 'Smart Serve certificate',   'kind' => 'doc',   'required' => false],
+        'foodsafety_document' => ['label' => 'Food Safety certificate',   'kind' => 'doc',   'required' => false],
         'jhsc1_document' => ['label' => 'JHSC Level 1 certificate',        'kind' => 'doc',   'required' => false],
         'jhsc2_document' => ['label' => 'JHSC Level 2 certificate',        'kind' => 'doc',   'required' => false],
     ];

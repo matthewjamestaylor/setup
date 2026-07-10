@@ -128,7 +128,7 @@ final class PdfBuilder extends \FPDF
             ['label' => 'SIN Issued Date', 'value' => $this->disp('sin_issued')],
             ['label' => 'SIN Expiry Date', 'value' => $this->disp('sin_expiry')],
         ]);
-        if (($this->data['permit_number'] ?? '') !== '') {
+        if ((($this->data['sin'] ?? '')[0] ?? '') === '9') {
             $this->subLabel('Work / Study Permit (SIN begins with 9)');
             $this->row([
                 ['label' => 'Permit Number', 'value' => $this->disp('permit_number')],
@@ -170,10 +170,13 @@ final class PdfBuilder extends \FPDF
             ['label' => 'Account Number', 'value' => $this->disp('dd_account_number')],
         ]);
 
-        // Certifications
+        // Certifications — render provided ones with details, and explicitly
+        // marked "Not Applicable" ones as a declaration so HR can distinguish
+        // an intentional N/A from an accidentally skipped section.
         $anyCert = false;
         foreach (FieldMap::CERTS as $key => $cmeta) {
-            if (($this->data["{$key}_cert_id"] ?? '') !== '' || ($this->data["{$key}_last_name"] ?? '') !== '') {
+            $provided = ($this->data["{$key}_cert_id"] ?? '') !== '' || ($this->data["{$key}_last_name"] ?? '') !== '';
+            if ($provided || ($this->data["{$key}_not_applicable"] ?? '') === '1') {
                 $anyCert = true;
                 break;
             }
@@ -183,6 +186,9 @@ final class PdfBuilder extends \FPDF
             foreach (FieldMap::CERTS as $key => $cmeta) {
                 $provided = ($this->data["{$key}_cert_id"] ?? '') !== '' || ($this->data["{$key}_last_name"] ?? '') !== '';
                 if (!$provided) {
+                    if (($this->data["{$key}_not_applicable"] ?? '') === '1') {
+                        $this->row([['label' => $cmeta['label'], 'value' => 'Not Applicable']]);
+                    }
                     continue;
                 }
                 $this->subLabel($cmeta['label']);
@@ -493,11 +499,19 @@ final class PdfBuilder extends \FPDF
     // ================================================================== //
     private function tx(string $s): string
     {
-        $out = @iconv('UTF-8', 'Windows-1252//TRANSLIT', $s);
-        if ($out === false) {
-            $out = @mb_convert_encoding($s, 'Windows-1252', 'UTF-8');
+        if (function_exists('iconv')) {
+            $out = @iconv('UTF-8', 'Windows-1252//TRANSLIT', $s);
+            if ($out !== false) {
+                return $out;
+            }
         }
-        return $out === false ? $s : $out;
+        if (function_exists('mb_convert_encoding')) {
+            $out = @mb_convert_encoding($s, 'Windows-1252', 'UTF-8');
+            if ($out !== false) {
+                return $out;
+            }
+        }
+        return $s;
     }
 
     // phpcs:disable
@@ -568,29 +582,53 @@ final class PdfBuilder extends \FPDF
         return $s . '…';
     }
 
+    /**
+     * Count how many lines FPDF's MultiCell will use for $text at width $w.
+     * Mirrors FPDF's wrapping (break at last space, or force-break mid-token
+     * when a single word is wider than the line) so the box is never
+     * undersized by a long unbroken token.
+     */
     private function countLines(string $text, float $w, float $size): int
     {
         $this->SetFontSize($size);
-        $lines = 0;
-        foreach (explode("\n", $text) as $para) {
-            if ($para === '') {
-                $lines++;
+        $total = 0;
+        foreach (explode("\n", str_replace("\r", '', $text)) as $para) {
+            $s = $this->tx($para); // Windows-1252, single-byte — safe to index
+            $n = strlen($s);
+            if ($n === 0) {
+                $total++;
                 continue;
             }
-            $words = explode(' ', $para);
-            $cur = '';
-            foreach ($words as $word) {
-                $try = $cur === '' ? $word : "{$cur} {$word}";
-                if ($this->GetStringWidth($this->tx($try)) > $w) {
-                    $lines++;
-                    $cur = $word;
+            $sep = -1;
+            $i = 0;
+            $j = 0;
+            $len = 0.0;
+            $lineCount = 1;
+            while ($i < $n) {
+                $c = $s[$i];
+                if ($c === ' ') {
+                    $sep = $i;
+                }
+                $len += $this->GetStringWidth($c);
+                if ($len > $w) {
+                    if ($sep === -1) {
+                        if ($i === $j) {
+                            $i++;
+                        }
+                    } else {
+                        $i = $sep + 1;
+                    }
+                    $sep = -1;
+                    $j = $i;
+                    $len = 0.0;
+                    $lineCount++;
                 } else {
-                    $cur = $try;
+                    $i++;
                 }
             }
-            $lines++;
+            $total += $lineCount;
         }
-        return max(1, $lines);
+        return max(1, $total);
     }
 
     private function ensure(float $need): void

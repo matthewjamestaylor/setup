@@ -21,9 +21,12 @@ $pass = (string) cfg('package.passphrase', '');
 $gateKey = $pass !== '' ? substr(hash('sha256', 'diag|' . $pass), 0, 12) : '';
 if (!$cli) {
     header('Content-Type: text/plain; charset=utf-8');
-    if ($gateKey !== '' && ($_GET['key'] ?? '') !== $gateKey) {
+    header('X-Robots-Tag: noindex');
+    // Fail closed: deny web access unless a passphrase is set AND the correct
+    // derived key is supplied. (An empty passphrase must NOT open the gate.)
+    if ($gateKey === '' || !hash_equals($gateKey, (string) ($_GET['key'] ?? ''))) {
         http_response_code(403);
-        echo "Forbidden. Run `php tools/diagnostics.php` over SSH to obtain the access key.\n";
+        echo "Forbidden. Run `php tools/diagnostics.php` over SSH (once the app is configured) to obtain the access key.\n";
         exit;
     }
 }
@@ -83,7 +86,7 @@ if ($transport === 'smtp') {
 } else {
     check('mail.log_dir writable', is_writable((string) cfg('mail.log_dir', sys_get_temp_dir())) || @mkdir((string) cfg('mail.log_dir'), 0700, true), (string) cfg('mail.log_dir'));
 }
-check('HR recipient set', (string) cfg('hr.email', '') !== '', (string) cfg('hr.email', ''));
+check('HR recipient set', (string) cfg('hr.email', '') !== '', '(configured)');
 
 $tsEnabled = (bool) cfg('turnstile.enabled', false);
 check('Turnstile keys', !$tsEnabled || ((string) cfg('turnstile.site_key', '') !== '' && (string) cfg('turnstile.secret', '') !== ''),

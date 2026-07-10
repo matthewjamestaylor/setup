@@ -228,6 +228,7 @@ $steps = [
           <label>End <input type="time" name="avail_<?= $e($key) ?>_end" data-day-time="<?= $e($key) ?>"></label>
         </div>
         <p class="err" id="avail_<?= $e($key) ?>_start-err" role="alert"></p>
+        <p class="err" id="avail_<?= $e($key) ?>_end-err" role="alert"></p>
       </div>
       <?php endforeach; ?>
     </div>
@@ -381,7 +382,7 @@ $steps = [
     <div class="field col-3 sigfield">
       <label>Signature <span class="req">*</span></label>
       <div class="sigpad-wrap">
-        <canvas id="signaturePad" class="sigpad" width="600" height="180" aria-label="Signature drawing area"></canvas>
+        <canvas id="signaturePad" class="sigpad" width="600" height="180" role="img" tabindex="0" aria-label="Signature drawing area" aria-describedby="f_signature-err"></canvas>
         <button type="button" class="btn-ghost sig-clear" id="sigClear">Clear</button>
       </div>
       <p class="help">Sign above using your mouse or finger.</p>

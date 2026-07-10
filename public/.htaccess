@@ -19,14 +19,20 @@ DirectoryIndex index.php
     Header always set Referrer-Policy "no-referrer"
     Header always set Cross-Origin-Opener-Policy "same-origin"
     Header always set Permissions-Policy "geolocation=(), camera=(), microphone=()"
-    Header always set Content-Security-Policy "default-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self' https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; connect-src 'self' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'"
+    Header always set Content-Security-Policy "default-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self' https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; connect-src 'self' https://challenges.cloudflare.com; style-src 'self'; img-src 'self' data: blob:; font-src 'self'"
     # Only sent over HTTPS-capable hosts; harmless otherwise.
     Header always set Strict-Transport-Security "max-age=15768000" "expr=%{HTTPS} == 'on'"
 </IfModule>
 
 # ---- Never serve dotfiles or backups ----------------------------------------
 <FilesMatch "^\.|\.(bak|inc|ini|log|sh|sql|swp|dist|sample)$">
-    Require all denied
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
 </FilesMatch>
 
 # ---- Cache static assets ----------------------------------------------------

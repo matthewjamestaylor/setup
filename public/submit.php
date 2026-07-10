@@ -24,7 +24,11 @@ header('Cache-Control: no-store');
 function respond(array $payload, int $code = 200): never
 {
     http_response_code($code);
-    echo json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    $json = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+    if ($json === false) {
+        $json = '{"ok":false,"formError":"A server error occurred. Please try again."}';
+    }
+    echo $json;
     exit;
 }
 
@@ -65,8 +69,28 @@ if (!$turnstile->verify($_POST['cf-turnstile-response'] ?? null, $_SERVER['REMOT
     ], 400);
 }
 
+// --- Refuse to run with an unconfigured/placeholder passphrase in production,
+//     which would otherwise "encrypt" PII under a publicly-known secret.
+$passphrase = (string) cfg('package.passphrase', '');
+if (cfg('app.env', 'production') === 'production'
+    && ($passphrase === '' || $passphrase === 'dev-passphrase-please-change')) {
+    error_log('[onboarding] refusing submission: package.passphrase is empty or a placeholder.');
+    respond(['ok' => false, 'formError' => 'This form is not fully configured yet. Please contact Human Resources.'], 503);
+}
+
 // --- Validate + build + send (nothing is persisted).
-$workDir = rtrim(sys_get_temp_dir(), '/') . '/lg_onb_' . Support::token(8);
+// Prefer the configured/ system temp dir; fall back to the app's storage/tmp
+// (helps hosts whose open_basedir excludes the system temp directory).
+$tmpBase = (string) cfg('uploads.tmp_dir', '');
+if ($tmpBase === '' || !is_dir($tmpBase) || !is_writable($tmpBase)) {
+    $sys = sys_get_temp_dir();
+    $tmpBase = ($sys && is_writable($sys)) ? $sys : APP_ROOT . '/storage/tmp';
+}
+$tmpBase = rtrim($tmpBase, '/');
+// Defence-in-depth: clear any working dirs orphaned by killed workers (>1h old).
+Support::sweepStale($tmpBase . '/lg_onb_*', 3600);
+
+$workDir = $tmpBase . '/lg_onb_' . Support::token(8);
 if (!@mkdir($workDir, 0700, true) && !is_dir($workDir)) {
     respond(['ok' => false, 'formError' => 'A temporary server error occurred. Please try again.'], 500);
 }
