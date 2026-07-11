@@ -141,6 +141,32 @@ final class Support
         return $ts . '.' . hash_hmac('sha256', (string) $ts, self::formSecret());
     }
 
+    // ---- Test-mode token (owner-only; unlocks the "Fill test data" tool) --
+
+    /** Secret token that activates test mode on the live site (?test=...). */
+    public static function testToken(): string
+    {
+        return substr(hash_hmac('sha256', 'legends-test-mode', self::formSecret()), 0, 20);
+    }
+
+    /** True when the supplied token matches (constant-time). */
+    public static function checkTestToken(?string $token): bool
+    {
+        return $token !== null && $token !== '' && hash_equals(self::testToken(), $token);
+    }
+
+    /**
+     * Test mode is on when running in development, or when a valid test token
+     * is supplied. Never active for a normal production visitor.
+     */
+    public static function testMode(?string $suppliedToken): bool
+    {
+        if (\cfg('app.env', 'production') === 'development') {
+            return true;
+        }
+        return self::checkTestToken($suppliedToken);
+    }
+
     /** Verify a form token: valid signature and age within [min,max] seconds. */
     public static function checkFormToken(string $token, int $minAge, int $maxAge, int $now): bool
     {
