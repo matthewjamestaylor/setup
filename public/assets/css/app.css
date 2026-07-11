@@ -44,27 +44,33 @@ body{
 .wrap{max-width:var(--maxw);margin:22px auto 40px;padding:0 clamp(16px,4vw,32px)}
 .step{
   background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
-  box-shadow:var(--shadow);padding:clamp(20px,4vw,34px);
+  box-shadow:var(--shadow);padding:clamp(18px,3vw,28px);
 }
 h1{font-size:clamp(24px,4vw,32px);margin:0 0 10px;letter-spacing:-.5px}
-h2{font-size:clamp(19px,3vw,24px);margin:0 0 14px;letter-spacing:-.3px}
-h2.mt{margin-top:30px;padding-top:24px;border-top:1px solid var(--line)}
-.subhead{font-size:14px;text-transform:uppercase;letter-spacing:1px;color:var(--grey);margin:22px 0 10px;font-weight:700}
-.lead{color:var(--ink-2);margin:0 0 18px;max-width:60ch}
+h2{font-size:clamp(18px,2.6vw,22px);margin:0 0 4px;letter-spacing:-.3px}
+h2.mt{margin-top:26px;padding-top:22px;border-top:1px solid var(--line)}
+.subhead{font-size:11.5px;text-transform:uppercase;letter-spacing:1.2px;color:var(--grey);font-weight:700;
+  margin:20px 0 12px;padding-top:16px;border-top:1px solid var(--line)}
+h2+.subhead,.lead+.subhead{border-top:none;padding-top:0;margin-top:14px}
+.lead{color:var(--ink-2);margin:0 0 16px;max-width:64ch;font-size:14.5px}
 .muted{color:var(--grey)}
 
 /* ---------- Grid & fields ---------- */
-.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px 18px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:13px 16px}
+.grid+.grid{margin-top:13px}
+.grid.two{grid-template-columns:repeat(2,1fr)}
+.grid.two .field.col-3{grid-column:span 2}
 .field.col-1{grid-column:span 1}
 .field.col-2{grid-column:span 2}
 .field.col-3{grid-column:span 3}
 .field{display:flex;flex-direction:column;min-width:0}
-label{font-size:13px;font-weight:600;color:var(--ink-2);margin-bottom:6px}
+.numbers-note{margin:2px 0 10px !important}
+label{font-size:12.5px;font-weight:600;color:var(--ink-2);margin-bottom:5px}
 .req{color:var(--danger);font-weight:700}
 .opt{color:var(--grey-2);font-weight:500;font-size:11.5px;text-transform:none;letter-spacing:0}
 input,select,textarea{
   font:inherit;color:var(--ink);background:#fff;border:1px solid var(--line-2);
-  border-radius:9px;padding:11px 12px;width:100%;transition:border-color .15s,box-shadow .15s;
+  border-radius:9px;padding:10px 12px;width:100%;transition:border-color .15s,box-shadow .15s;
 }
 input:focus,select:focus,textarea:focus{outline:none;border-color:var(--ink);box-shadow:0 0 0 3px rgba(17,20,24,.10)}
 input[readonly]{background:#f6f7f9;color:var(--grey)}

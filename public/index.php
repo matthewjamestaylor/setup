@@ -56,7 +56,10 @@ function field(string $name, string $label, array $o = []): void
         $attrs[] = $o['extra'];
     }
     $col = isset($o['col']) ? ' col-' . (int) $o['col'] : '';
-    echo '<div class="field' . $col . '">';
+    // A conditional field hides the WHOLE group (label + input), not just the
+    // input — so a stray label never shows with no field under it.
+    $wrap = !empty($o['cond']) ? ' ' . $o['cond'] . ' hidden' : '';
+    echo '<div class="field' . $col . '"' . $wrap . '>';
     echo '<label for="' . $id . '">' . htmlspecialchars($label, ENT_QUOTES) . ($req ? ' <span class="req" aria-hidden="true">*</span>' : '') . '</label>';
     echo '<input ' . implode(' ', $attrs) . ' aria-describedby="' . $id . '-err">';
     if (!empty($o['help'])) {
@@ -210,7 +213,7 @@ foreach (FieldMap::BANKS as $k => $m) {
 <meta name="robots" content="noindex, nofollow">
 <title>Employee Information · Legends Global</title>
 <link rel="preconnect" href="https://challenges.cloudflare.com">
-<link rel="stylesheet" href="assets/css/app.css?v=2">
+<link rel="stylesheet" href="assets/css/app.css?v=3">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='13' fill='none' stroke='%23111' stroke-width='5'/></svg>">
 <?php if ($tsEnabled): ?>
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
@@ -258,6 +261,8 @@ foreach (FieldMap::BANKS as $k => $m) {
   <!-- STEP 2: PERSONAL -->
   <section class="step" data-step="1" hidden aria-label="Personal information">
     <h2>Personal Information</h2>
+
+    <h3 class="subhead">Legal Name &amp; Identity</h3>
     <div class="grid">
       <?php
       field('first_name', 'First Name (Legal)', ['required' => true, 'autocomplete' => 'given-name', 'col' => 1, 'validate' => 'name']);
@@ -265,18 +270,34 @@ foreach (FieldMap::BANKS as $k => $m) {
       field('last_name', 'Last Name (Legal)', ['required' => true, 'autocomplete' => 'family-name', 'col' => 1, 'validate' => 'name']);
       field('preferred_name', 'Preferred Name', ['col' => 1]);
       selectField('pronouns', 'Pronouns', FieldMap::PRONOUNS, ['col' => 1, 'extra' => 'data-pronouns']);
-      field('pronouns_other', 'Specify pronouns', ['col' => 1, 'extra' => 'data-pronouns-other hidden']);
       field('date_of_birth', 'Date of Birth', ['type' => 'date', 'required' => true, 'max' => $today, 'col' => 1, 'validate' => 'date']);
-      field('street_address', 'Home Street Address', ['required' => true, 'autocomplete' => 'address-line1', 'col' => 2, 'help' => 'Include your unit/apartment number if you have one — missing unit numbers are the #1 cause of returned mail.']);
+      field('pronouns_other', 'Specify your pronouns', ['col' => 1, 'cond' => 'data-pronouns-other']);
+      ?>
+    </div>
+
+    <h3 class="subhead">Home Address</h3>
+    <div class="grid">
+      <?php
+      field('street_address', 'Street Address', ['required' => true, 'autocomplete' => 'address-line1', 'col' => 2, 'help' => 'Include your unit/apartment number below — missing unit numbers are the #1 cause of returned mail.']);
       field('unit', 'Unit / Apartment', ['autocomplete' => 'address-line2', 'col' => 1]);
       field('city', 'City', ['required' => true, 'autocomplete' => 'address-level2', 'col' => 1]);
       field('province', 'Province', ['required' => true, 'value' => 'Ontario', 'autocomplete' => 'address-level1', 'col' => 1]);
       field('postal_code', 'Postal Code', ['required' => true, 'placeholder' => 'K1A 0B1', 'autocomplete' => 'postal-code', 'autocapitalize' => 'characters', 'maxlength' => 7, 'col' => 1, 'validate' => 'postal']);
+      ?>
+    </div>
+
+    <h3 class="subhead">Contact</h3>
+    <div class="grid">
+      <?php
       field('mobile_phone', 'Mobile Phone', ['type' => 'tel', 'required' => true, 'autocomplete' => 'mobile tel', 'col' => 1, 'validate' => 'tel', 'phone' => true, 'placeholder' => '+1 (416) 555-0142']);
       field('home_phone', 'Home Phone', ['type' => 'tel', 'col' => 1, 'validate' => 'tel', 'phone' => true]);
       field('other_phone', 'Other Phone', ['type' => 'tel', 'col' => 1, 'validate' => 'tel', 'phone' => true]);
-      field('primary_email', 'Primary Email Address', ['type' => 'email', 'required' => true, 'autocomplete' => 'email', 'col' => 2, 'validate' => 'email']);
-      field('secondary_email', 'Secondary Email Address', ['type' => 'email', 'col' => 2, 'validate' => 'email']);
+      ?>
+    </div>
+    <div class="grid two">
+      <?php
+      field('primary_email', 'Primary Email Address', ['type' => 'email', 'required' => true, 'autocomplete' => 'email', 'col' => 1, 'validate' => 'email']);
+      field('secondary_email', 'Secondary Email Address', ['type' => 'email', 'col' => 1, 'validate' => 'email']);
       ?>
     </div>
   </section>
@@ -389,11 +410,16 @@ foreach (FieldMap::BANKS as $k => $m) {
     <div class="grid">
       <?php
       selectField('dd_bank', 'Financial Institution', FieldMap::bankOptions(), ['required' => true, 'col' => 2, 'extra' => 'data-bank']);
-      field('dd_bank_other', 'Institution Name', ['col' => 1, 'extra' => 'data-bank-other hidden']);
-      field('dd_account_holder', "Account Holder's Name", ['required' => true, 'col' => 1, 'validate' => 'name']);
-      field('dd_institution_number', 'Institution Number (3 digits)', ['required' => true, 'inputmode' => 'numeric', 'maxlength' => 3, 'col' => 1, 'validate' => 'digits3', 'extra' => 'data-institution']);
-      field('dd_transit', 'Transit Number (5 digits)', ['required' => true, 'inputmode' => 'numeric', 'maxlength' => 5, 'col' => 1, 'validate' => 'digits5']);
-      field('dd_account_number', 'Account Number', ['required' => true, 'inputmode' => 'numeric', 'maxlength' => 12, 'col' => 1, 'validate' => 'account', 'extra' => 'data-account']);
+      field('dd_bank_other', 'Institution Name', ['required' => true, 'col' => 1, 'cond' => 'data-bank-other']);
+      field('dd_account_holder', "Account Holder's Name", ['required' => true, 'col' => 3, 'validate' => 'name']);
+      ?>
+    </div>
+    <p class="help numbers-note">The three numbers below appear on your void cheque, in the order shown.</p>
+    <div class="grid">
+      <?php
+      field('dd_transit', 'Transit Number', ['required' => true, 'inputmode' => 'numeric', 'maxlength' => 5, 'col' => 1, 'validate' => 'digits5', 'placeholder' => '5 digits']);
+      field('dd_institution_number', 'Institution Number', ['required' => true, 'inputmode' => 'numeric', 'maxlength' => 3, 'col' => 1, 'validate' => 'digits3', 'extra' => 'data-institution', 'placeholder' => '3 digits', 'help' => 'Auto-filled for major banks.']);
+      field('dd_account_number', 'Account Number', ['required' => true, 'inputmode' => 'numeric', 'maxlength' => 12, 'col' => 1, 'validate' => 'account', 'extra' => 'data-account', 'placeholder' => '7–12 digits']);
       field('dd_account_confirm', 'Confirm Account Number', ['required' => true, 'inputmode' => 'numeric', 'maxlength' => 12, 'col' => 1, 'validate' => 'account', 'nopaste' => true, 'extra' => 'data-account-confirm', 'help' => 'Re-type it — paste and autofill are disabled to catch typos.']);
       fileField('dd_document', 'Upload void cheque / direct deposit form', ['required' => true, 'help' => 'Download the PDF from your online banking where possible.']);
       ?>
@@ -481,6 +507,6 @@ foreach (FieldMap::BANKS as $k => $m) {
 </main>
 
 <footer class="foot"><span>Legends Global · Confidential</span><span>Need help? Contact Human Resources.</span></footer>
-<script src="assets/js/app.js?v=2" defer></script>
+<script src="assets/js/app.js?v=3" defer></script>
 </body>
 </html>
