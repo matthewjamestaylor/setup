@@ -164,11 +164,12 @@
   // ---------------------------------------------------------------- pronouns
   var pron = form.querySelector('[data-pronouns]');
   if (pron) {
-    var pronOther = form.querySelector('[data-pronouns-other]');
+    var pronWrap = form.querySelector('[data-pronouns-other]');       // the .field wrapper
+    var pronInput = pronWrap ? pronWrap.querySelector('input') : null;
     pron.addEventListener('change', function () {
       var other = pron.value === 'other';
-      pronOther.hidden = !other; pronOther.setAttribute('data-required', other ? '1' : '');
-      if (!other) { pronOther.value = ''; setError(pronOther, ''); }
+      pronWrap.hidden = !other;
+      if (pronInput) { if (other) pronInput.setAttribute('data-required', '1'); else { pronInput.removeAttribute('data-required'); pronInput.value = ''; setError(pronInput, ''); } }
     });
   }
 
@@ -220,14 +221,14 @@
 
   // ---------------------------------------------------------------- bank autofill
   var bankSel = form.querySelector('[data-bank]');
-  var bankOther = form.querySelector('[data-bank-other]');
+  var bankOtherWrap = form.querySelector('[data-bank-other]');       // the .field wrapper
+  var bankOtherInput = bankOtherWrap ? bankOtherWrap.querySelector('input') : null;
   var instInput = form.querySelector('[data-institution]');
   function refreshBank() {
     if (!bankSel) return;
     var v = bankSel.value, inst = LG.banks[v];
-    bankOther.hidden = v !== 'other';
-    bankOther.setAttribute('data-required', v === 'other' ? '1' : '');
-    if (v !== 'other') { bankOther.value = ''; setError(bankOther, ''); }
+    bankOtherWrap.hidden = v !== 'other';
+    if (bankOtherInput) { if (v === 'other') bankOtherInput.setAttribute('data-required', '1'); else { bankOtherInput.removeAttribute('data-required'); bankOtherInput.value = ''; setError(bankOtherInput, ''); } }
     if (inst) { instInput.value = inst; instInput.readOnly = true; setError(instInput, ''); }
     else { if (instInput.readOnly) instInput.value = ''; instInput.readOnly = false; }
   }
