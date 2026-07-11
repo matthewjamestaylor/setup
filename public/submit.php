@@ -12,6 +12,7 @@ require dirname(__DIR__) . '/app/bootstrap.php';
 
 use Legends\Validator;
 use Legends\PdfBuilder;
+use Legends\TextBuilder;
 use Legends\Packager;
 use Legends\Mailer;
 use Legends\Turnstile;
@@ -45,28 +46,34 @@ if ($_POST === [] && $_FILES === [] && $contentLength > 0) {
     ], 413);
 }
 
+// --- Test mode: a valid owner token (or development env) marks the submission
+//     [TEST], routes it to the test inbox, and relaxes the anti-abuse checks.
+$isTest = Support::testMode($_POST['test_token'] ?? null);
+
 // --- Honeypot: a hidden field only a bot would fill. Silently accept & drop.
 $honeypot = (string) cfg('security.honeypot_field', 'company_website');
 if (trim((string) ($_POST[$honeypot] ?? '')) !== '') {
     respond(['ok' => true, 'reference' => strtoupper(Support::token(3))]);
 }
 
-// --- Time trap: HMAC-signed form-open timestamp.
-$minSeconds = (int) cfg('security.min_submit_seconds', 8);
-if (!Support::checkFormToken((string) ($_POST['form_token'] ?? ''), $minSeconds, 21600, time())) {
-    respond([
-        'ok' => false,
-        'formError' => 'Your session expired, or the form was submitted unusually fast. Please review your details and submit again.',
-    ], 400);
-}
+if (!$isTest) {
+    // --- Time trap: HMAC-signed form-open timestamp.
+    $minSeconds = (int) cfg('security.min_submit_seconds', 8);
+    if (!Support::checkFormToken((string) ($_POST['form_token'] ?? ''), $minSeconds, 21600, time())) {
+        respond([
+            'ok' => false,
+            'formError' => 'Your session expired, or the form was submitted unusually fast. Please review your details and submit again.',
+        ], 400);
+    }
 
-// --- Bot verification (Cloudflare Turnstile).
-$turnstile = new Turnstile((array) cfg('turnstile', []));
-if (!$turnstile->verify($_POST['cf-turnstile-response'] ?? null, $_SERVER['REMOTE_ADDR'] ?? null)) {
-    respond([
-        'ok' => false,
-        'formError' => 'Bot verification failed. Please complete the verification checkbox and try again.',
-    ], 400);
+    // --- Bot verification (Cloudflare Turnstile).
+    $turnstile = new Turnstile((array) cfg('turnstile', []));
+    if (!$turnstile->verify($_POST['cf-turnstile-response'] ?? null, $_SERVER['REMOTE_ADDR'] ?? null)) {
+        respond([
+            'ok' => false,
+            'formError' => 'Bot verification failed. Please complete the verification checkbox and try again.',
+        ], 400);
+    }
 }
 
 // --- Refuse to run with an unconfigured/placeholder passphrase in production,
@@ -118,13 +125,14 @@ try {
     ];
 
     $pdfPath = (new PdfBuilder($result['data'], $result['files'], $result['signature'], $meta))->render($workDir);
+    $textExport = (new TextBuilder($result['data'], $result['files'], $meta))->build();
 
     $package = (new Packager(
         (string) cfg('package.passphrase', ''),
         (string) cfg('package.filename_prefix', 'LegendsGlobal-NewHire')
-    ))->build($result['data'], $pdfPath, $result['files'], $meta, $workDir);
+    ))->build($result['data'], $pdfPath, $result['files'], $meta, $workDir, $textExport);
 
-    (new Mailer((array) cfg('mail', []), (array) cfg('hr', [])))->send($package, $result['data'], $meta);
+    (new Mailer((array) cfg('mail', []), (array) cfg('hr', [])))->send($package, $result['data'], $meta, $isTest);
 
     respond(['ok' => true, 'reference' => $meta['reference']]);
 } catch (\Throwable $e) {

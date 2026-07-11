@@ -60,6 +60,10 @@ return [
         'reply_to'   => env('MAIL_REPLY_TO', ''),
         // Optional blind copy of every submission (e.g. an onboarding archive).
         'bcc'        => env('MAIL_BCC', ''),
+        // Where [TEST] submissions go (never HR). Used only in test mode
+        // (development env, or the ?test=<token> URL). Leave blank to write a
+        // preview .eml instead of sending.
+        'test_recipient' => env('MAIL_TEST_RECIPIENT', ''),
         // Verify the TLS certificate of the SMTP server. Keep TRUE. Only set
         // false as a last resort on a mis-configured shared host.
         'verify_tls' => env_bool('MAIL_VERIFY_TLS', true),
