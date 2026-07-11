@@ -26,9 +26,17 @@ final class Mailer
      * @param array $meta     ['reference'=>.., 'timestamp'=>..]
      * @throws \RuntimeException on send failure
      */
-    public function send(array $package, array $data, array $meta): void
+    public function send(array $package, array $data, array $meta, bool $isTest = false): void
     {
         $transport = strtolower((string) ($this->mailCfg['transport'] ?? 'smtp'));
+
+        // Test submissions go to the test recipient (never HR). If none is set,
+        // fall back to writing a preview .eml so a live [TEST] never reaches HR.
+        $testRecipient = (string) ($this->mailCfg['test_recipient'] ?? '');
+        $testHasRecipient = $isTest && filter_var($testRecipient, FILTER_VALIDATE_EMAIL);
+        if ($isTest && !$testHasRecipient) {
+            $transport = 'log';
+        }
 
         $required = $transport === 'smtp'
             ? ['host', 'username', 'password', 'from_email']
@@ -38,8 +46,10 @@ final class Mailer
                 throw new \RuntimeException("Mail is not configured (missing '{$req}'). Set it in config/config.php.");
             }
         }
-        if (!filter_var((string) ($this->hrCfg['email'] ?? ''), FILTER_VALIDATE_EMAIL)) {
-            throw new \RuntimeException('HR recipient (hr.email) is not configured or is not a valid email address.');
+        $toEmail = $testHasRecipient ? $testRecipient : (string) ($this->hrCfg['email'] ?? '');
+        $toName  = $testHasRecipient ? 'Onboarding Test' : (string) ($this->hrCfg['name'] ?? '');
+        if (!filter_var($toEmail, FILTER_VALIDATE_EMAIL)) {
+            throw new \RuntimeException('Recipient email is not configured or is not a valid email address.');
         }
 
         $mail = new PHPMailer(true);
@@ -70,7 +80,7 @@ final class Mailer
             }
 
             $mail->setFrom((string) $this->mailCfg['from_email'], (string) ($this->mailCfg['from_name'] ?? 'Onboarding'));
-            $mail->addAddress((string) $this->hrCfg['email'], (string) ($this->hrCfg['name'] ?? ''));
+            $mail->addAddress($toEmail, $toName);
 
             // Reply-To → the new hire so HR can respond directly.
             $replyTo = (string) ($this->mailCfg['reply_to'] ?? '');
@@ -82,15 +92,16 @@ final class Mailer
                 $mail->addReplyTo($replyTo, $employee);
             }
 
+            // Real submissions are BCC'd to the payroll archive; test ones are not.
             $bcc = (string) ($this->mailCfg['bcc'] ?? '');
-            if ($bcc !== '' && filter_var($bcc, FILTER_VALIDATE_EMAIL)) {
+            if (!$isTest && $bcc !== '' && filter_var($bcc, FILTER_VALIDATE_EMAIL)) {
                 $mail->addBCC($bcc);
             }
 
             $employee = trim(($data['first_name'] ?? '') . ' ' . ($data['last_name'] ?? '')) ?: 'New Hire';
             $date = substr((string) ($meta['timestamp'] ?? date('Y-m-d')), 0, 10);
 
-            $mail->Subject = "New Hire Submission — {$employee} — {$date}";
+            $mail->Subject = ($isTest ? '[TEST] ' : '') . "New Hire Submission — {$employee} — {$date}";
             $mail->isHTML(true);
             $mail->Body    = $this->htmlBody($employee, $data, $meta, $package);
             $mail->AltBody = $this->textBody($employee, $data, $meta, $package);
@@ -105,7 +116,7 @@ final class Mailer
                 // flow can be verified before SMTP credentials are configured.
                 // This persists PII to disk, so it is dev/testing only and is
                 // refused in production.
-                if (\cfg('app.env', 'production') === 'production') {
+                if (!$isTest && \cfg('app.env', 'production') === 'production') {
                     throw new \RuntimeException("mail.transport 'log' writes submissions to disk and is not permitted in production. Set mail.transport = 'smtp'.");
                 }
                 if (!$mail->preSend()) {

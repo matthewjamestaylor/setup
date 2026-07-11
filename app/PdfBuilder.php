@@ -61,7 +61,7 @@ final class PdfBuilder extends \FPDF
         ]);
         $this->row([
             ['label' => 'Preferred Name', 'value' => $this->disp('preferred_name')],
-            ['label' => 'Pronouns', 'value' => $this->disp('pronouns')],
+            ['label' => 'Pronouns', 'value' => $this->dispPronouns()],
             ['label' => 'Date of Birth', 'value' => $this->disp('date_of_birth')],
         ]);
         $this->row([
@@ -83,26 +83,30 @@ final class PdfBuilder extends \FPDF
             ['label' => 'Secondary Email', 'value' => $this->disp('secondary_email')],
         ]);
 
-        // Emergency contacts
+        // Emergency contacts (repeatable)
         $this->sectionBar('EMERGENCY CONTACTS');
-        $this->subLabel('Primary Contact');
-        $this->row([
-            ['label' => 'Name', 'value' => $this->disp('ec1_name')],
-            ['label' => 'Relationship', 'value' => $this->disp('ec1_relationship')],
-        ]);
-        $this->row([
-            ['label' => 'Phone', 'value' => $this->disp('ec1_phone')],
-            ['label' => 'Email', 'value' => $this->disp('ec1_email')],
-        ]);
-        if ($this->disp('ec2_name') !== '—') {
-            $this->subLabel('Secondary Contact');
+        $contacts = is_array($this->data['contacts'] ?? null) ? $this->data['contacts'] : [];
+        if ($contacts === []) {
+            $this->paragraph('No emergency contact provided.');
+        }
+        foreach ($contacts as $i => $c) {
+            $this->subLabel(($i === 0 ? 'Primary Contact' : 'Additional Contact') . ' #' . ($i + 1));
+            $name = trim(($c['first_name'] ?? '') . ' ' . ($c['last_name'] ?? ''));
+            $rel = FieldMap::RELATIONSHIPS[$c['relationship'] ?? ''] ?? '';
+            if (($c['relationship'] ?? '') === 'other' && ($c['relationship_other'] ?? '') !== '') {
+                $rel = $c['relationship_other'];
+            }
             $this->row([
-                ['label' => 'Name', 'value' => $this->disp('ec2_name')],
-                ['label' => 'Relationship', 'value' => $this->disp('ec2_relationship')],
+                ['label' => 'Name', 'value' => $name !== '' ? $name : '—'],
+                ['label' => 'Relationship', 'value' => $rel !== '' ? $rel : '—'],
             ]);
+            $phone = trim(($c['phone'] ?? '')
+                . (($c['phone_device'] ?? '') ? ' (' . (FieldMap::PHONE_DEVICES[$c['phone_device']] ?? '') . ')' : '')
+                . (($c['phone_location'] ?? '') ? ' · ' . (FieldMap::CONTACT_LOCATIONS[$c['phone_location']] ?? '') : ''));
+            $email = trim(($c['email'] ?? '') . (($c['email_location'] ?? '') ? ' · ' . (FieldMap::CONTACT_LOCATIONS[$c['email_location']] ?? '') : ''));
             $this->row([
-                ['label' => 'Phone', 'value' => $this->disp('ec2_phone')],
-                ['label' => 'Email', 'value' => $this->disp('ec2_email')],
+                ['label' => 'Phone', 'value' => $phone !== '' ? $phone : '—'],
+                ['label' => 'Email', 'value' => $email !== '' ? $email : '—'],
             ]);
         }
 
@@ -115,11 +119,23 @@ final class PdfBuilder extends \FPDF
         if ($this->disp('availability_comments') !== '—') {
             $this->block('Comments / Additional Information', $this->disp('availability_comments'));
         }
+        $this->row([['label' => 'Upcoming trips / time off', 'value' => $this->yn('trips_has')]]);
+        if (($this->data['trips_has'] ?? '') === 'yes') {
+            $this->block('Trip / time-off details', $this->disp('trips_details'));
+        }
 
-        // Medical
+        // Medical (yes/no + details)
         $this->sectionBar('MEDICAL AND SAFETY INFORMATION');
-        $this->block('Allergies', $this->disp('allergies'));
-        $this->block('Medical Conditions', $this->disp('medical_conditions'));
+        $this->row([
+            ['label' => 'Has allergies', 'value' => $this->yn('allergies_has')],
+            ['label' => 'Has medical conditions', 'value' => $this->yn('medical_has')],
+        ]);
+        if (($this->data['allergies_has'] ?? '') === 'yes') {
+            $this->block('Allergies', $this->disp('allergies_details'));
+        }
+        if (($this->data['medical_has'] ?? '') === 'yes') {
+            $this->block('Medical Conditions', $this->disp('medical_details'));
+        }
 
         // Work authorization
         $this->sectionBar('WORK AUTHORIZATION');
@@ -131,14 +147,16 @@ final class PdfBuilder extends \FPDF
         if ((($this->data['sin'] ?? '')[0] ?? '') === '9') {
             $this->subLabel('Work / Study Permit (SIN begins with 9)');
             $this->row([
+                ['label' => 'Permit Type', 'value' => FieldMap::PERMIT_TYPES[$this->data['permit_type'] ?? ''] ?? '—'],
                 ['label' => 'Permit Number', 'value' => $this->disp('permit_number')],
+            ]);
+            $this->row([
                 ['label' => 'Issued Date', 'value' => $this->disp('permit_issued')],
                 ['label' => 'Expiry Date', 'value' => $this->disp('permit_expiry')],
             ]);
-            $this->row([
-                ['label' => 'IRCC Letter ID', 'value' => $this->disp('ircc_letter_id')],
-                ['label' => 'Restrictions / Other', 'value' => $this->disp('permit_restrictions'), 'w' => 2],
-            ]);
+            if (($this->data['ircc_letter_id'] ?? '') !== '') {
+                $this->row([['label' => 'IRCC Letter ID (permit expired)', 'value' => $this->disp('ircc_letter_id')]]);
+            }
         }
 
         // Government ID
@@ -149,19 +167,15 @@ final class PdfBuilder extends \FPDF
             ['label' => 'Last Name (Legal)', 'value' => $this->disp('gov_last_name')],
         ]);
         $this->row([
-            ['label' => 'Document Type', 'value' => $this->disp('gov_doc_type')],
+            ['label' => 'Document Type', 'value' => FieldMap::idTypeOptions()[$this->data['gov_doc_type'] ?? ''] ?? '—'],
             ['label' => 'Document ID Number', 'value' => $this->disp('gov_doc_number')],
-        ]);
-        $this->row([
-            ['label' => 'Issued By', 'value' => $this->disp('gov_issued_by')],
-            ['label' => 'Issued Date', 'value' => $this->disp('gov_issued_date')],
             ['label' => 'Expiry Date', 'value' => $this->disp('gov_expiry_date')],
         ]);
 
         // Direct deposit
         $this->sectionBar('DIRECT DEPOSIT DETAILS');
         $this->row([
-            ['label' => 'Financial Institution', 'value' => $this->disp('dd_institution_name')],
+            ['label' => 'Financial Institution', 'value' => $this->dispBank()],
             ['label' => "Account Holder's Name", 'value' => $this->disp('dd_account_holder')],
         ]);
         $this->row([
@@ -170,28 +184,12 @@ final class PdfBuilder extends \FPDF
             ['label' => 'Account Number', 'value' => $this->disp('dd_account_number')],
         ]);
 
-        // Certifications — render provided ones with details, and explicitly
-        // marked "Not Applicable" ones as a declaration so HR can distinguish
-        // an intentional N/A from an accidentally skipped section.
-        $anyCert = false;
+        // Certifications — Yes/No per cert; details when held.
+        $this->sectionBar('CERTIFICATIONS');
         foreach (FieldMap::CERTS as $key => $cmeta) {
-            $provided = ($this->data["{$key}_cert_id"] ?? '') !== '' || ($this->data["{$key}_last_name"] ?? '') !== '';
-            if ($provided || ($this->data["{$key}_not_applicable"] ?? '') === '1') {
-                $anyCert = true;
-                break;
-            }
-        }
-        if ($anyCert) {
-            $this->sectionBar('CERTIFICATIONS');
-            foreach (FieldMap::CERTS as $key => $cmeta) {
-                $provided = ($this->data["{$key}_cert_id"] ?? '') !== '' || ($this->data["{$key}_last_name"] ?? '') !== '';
-                if (!$provided) {
-                    if (($this->data["{$key}_not_applicable"] ?? '') === '1') {
-                        $this->row([['label' => $cmeta['label'], 'value' => 'Not Applicable']]);
-                    }
-                    continue;
-                }
-                $this->subLabel($cmeta['label']);
+            $has = $this->data["{$key}_has"] ?? '';
+            if ($has === 'yes') {
+                $this->subLabel($cmeta['label'] . ' — Yes');
                 $cells = [
                     ['label' => 'Name', 'value' => $this->certName($key)],
                     ['label' => 'Certificate ID', 'value' => $this->disp("{$key}_cert_id")],
@@ -202,6 +200,9 @@ final class PdfBuilder extends \FPDF
                 if ($cmeta['provider']) {
                     $this->row([['label' => 'Training Provider', 'value' => $this->disp("{$key}_provider")]]);
                 }
+            } else {
+                $label = $has === 'no' ? 'No' : ($has === 'na' ? 'Not applicable (under 18)' : '—');
+                $this->row([['label' => $cmeta['label'], 'value' => $label]]);
             }
         }
 
@@ -553,6 +554,33 @@ final class PdfBuilder extends \FPDF
     private function yesNo(string $key): string
     {
         return ($this->data[$key] ?? '') === '1' ? 'Yes' : 'No';
+    }
+
+    /** Yes/No/— for a 'yesno' field. */
+    private function yn(string $key): string
+    {
+        $v = $this->data[$key] ?? '';
+        return $v === 'yes' ? 'Yes' : ($v === 'no' ? 'No' : '—');
+    }
+
+    private function dispPronouns(): string
+    {
+        $v = (string) ($this->data['pronouns'] ?? '');
+        if ($v === 'other') {
+            $o = trim((string) ($this->data['pronouns_other'] ?? ''));
+            return $o !== '' ? $o : 'Other';
+        }
+        return $v !== '' ? (FieldMap::PRONOUNS[$v] ?? $v) : '—';
+    }
+
+    private function dispBank(): string
+    {
+        $v = (string) ($this->data['dd_bank'] ?? '');
+        if ($v === 'other') {
+            $o = trim((string) ($this->data['dd_bank_other'] ?? ''));
+            return $o !== '' ? $o : 'Other';
+        }
+        return $v !== '' ? (FieldMap::BANKS[$v]['name'] ?? $v) : '—';
     }
 
     private function certName(string $key): string

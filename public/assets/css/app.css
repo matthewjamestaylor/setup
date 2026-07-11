@@ -168,6 +168,43 @@ textarea{resize:vertical}
 /* ---------- Footer ---------- */
 .foot{max-width:var(--maxw);margin:0 auto;padding:24px clamp(16px,4vw,32px) 40px;display:flex;justify-content:space-between;gap:12px;color:var(--grey);font-size:12.5px;flex-wrap:wrap}
 
+/* ---------- Test mode bar ---------- */
+.testbar{background:#7a3cff;color:#fff;padding:8px clamp(16px,4vw,32px);font-size:13px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.btn-test{font:inherit;font-weight:700;background:#fff;color:#5a1fd6;border:none;border-radius:8px;padding:6px 14px;cursor:pointer}
+
+/* ---------- Yes/No ---------- */
+.yesno .ynlabel{display:block;font-size:13px;font-weight:600;color:var(--ink-2);margin-bottom:8px}
+.ynrow{display:flex;gap:10px}
+.ynopt{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line-2);border-radius:9px;padding:9px 18px;cursor:pointer;font-weight:600;margin:0;background:#fff}
+.ynopt input{width:18px;height:18px;accent-color:var(--ink);margin:0}
+.ynopt:has(input:checked){border-color:var(--ink);background:#f2f3f5}
+.reveal{grid-column:1/-1}
+
+/* ---------- Emergency contacts ---------- */
+.contact{border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin:0 0 14px;min-width:0}
+.contact legend{font-weight:800;font-size:14px;padding:0 8px;display:flex;align-items:center;gap:10px}
+.btn-link{font:inherit;font-size:12.5px;font-weight:600;color:var(--danger);background:none;border:none;cursor:pointer;padding:0;text-decoration:underline}
+.contact .field .err{min-height:0}
+.rel-other[hidden]{display:none!important}
+
+/* ---------- Certifications recommend ---------- */
+.cert-recommend{background:#fff7e6;border:1px solid #f0dfb0;border-radius:8px;padding:10px 12px;font-size:13px;color:#7a5b00;margin:6px 0}
+
+/* ---------- Headshot camera ---------- */
+.headshot-tool{margin:0 0 18px}
+.cam-wrap{position:relative;width:270px;max-width:100%;aspect-ratio:3/4;background:#f2f3f5;border:1px solid var(--line-2);border-radius:12px;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.cam-wrap video,.cam-wrap canvas{width:100%;height:100%;object-fit:cover;display:block}
+.cam-guide{position:absolute;inset:0;pointer-events:none;border:2px dashed rgba(17,20,24,.35);border-radius:12px}
+.cam-guide::after{content:"";position:absolute;left:50%;top:16%;transform:translateX(-50%);width:46%;height:62%;border:2px dashed rgba(17,20,24,.4);border-radius:50% 50% 46% 46%}
+.cam-placeholder{padding:16px;text-align:center;color:var(--grey);font-size:13px}
+.cam-controls{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap}
+.headshot-dos{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;font-size:12px}
+.headshot-dos .do{color:var(--ok);background:#eef6f0;border-radius:6px;padding:4px 8px}
+.headshot-dos .dont{color:var(--danger);background:#fbeceb;border-radius:6px;padding:4px 8px}
+
+/* ---------- Error banner (moved off inline styles for CSP) ---------- */
+.errbanner{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;background:#c0392b;color:#fff;padding:13px 18px;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.25);z-index:60;max-width:92%;font-weight:600;display:none}
+
 /* ---------- Responsive ---------- */
 @media (max-width:720px){
   .grid{grid-template-columns:repeat(2,1fr)}

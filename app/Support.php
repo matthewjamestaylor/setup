@@ -92,7 +92,7 @@ final class Support
         return preg_replace('/\D+/', '', $v) ?? '';
     }
 
-    /** Pretty-print a 10-digit North American phone number. */
+    /** Pretty-print a 10-digit North American phone number as +1 (416) 454-1814. */
     public static function formatPhone(string $v): string
     {
         $d = self::phoneDigits($v);
@@ -100,7 +100,7 @@ final class Support
             $d = substr($d, 1);
         }
         if (strlen($d) === 10) {
-            return sprintf('(%s) %s-%s', substr($d, 0, 3), substr($d, 3, 3), substr($d, 6));
+            return sprintf('+1 (%s) %s-%s', substr($d, 0, 3), substr($d, 3, 3), substr($d, 6));
         }
         return $v; // leave unusual formats untouched
     }
@@ -139,6 +139,32 @@ final class Support
     public static function makeFormToken(int $ts): string
     {
         return $ts . '.' . hash_hmac('sha256', (string) $ts, self::formSecret());
+    }
+
+    // ---- Test-mode token (owner-only; unlocks the "Fill test data" tool) --
+
+    /** Secret token that activates test mode on the live site (?test=...). */
+    public static function testToken(): string
+    {
+        return substr(hash_hmac('sha256', 'legends-test-mode', self::formSecret()), 0, 20);
+    }
+
+    /** True when the supplied token matches (constant-time). */
+    public static function checkTestToken(?string $token): bool
+    {
+        return $token !== null && $token !== '' && hash_equals(self::testToken(), $token);
+    }
+
+    /**
+     * Test mode is on when running in development, or when a valid test token
+     * is supplied. Never active for a normal production visitor.
+     */
+    public static function testMode(?string $suppliedToken): bool
+    {
+        if (\cfg('app.env', 'production') === 'development') {
+            return true;
+        }
+        return self::checkTestToken($suppliedToken);
     }
 
     /** Verify a form token: valid signature and age within [min,max] seconds. */

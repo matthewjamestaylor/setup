@@ -26,7 +26,7 @@ final class Packager
      * @param string $workDir
      * @return array ['path'=>string, 'filename'=>string, 'method'=>string, 'encrypted'=>bool]
      */
-    public function build(array $data, string $pdfPath, array $files, array $meta, string $workDir): array
+    public function build(array $data, string $pdfPath, array $files, array $meta, string $workDir, string $textExport = ''): array
     {
         if ($this->passphrase === '') {
             throw new \RuntimeException('Package passphrase is not configured.');
@@ -54,6 +54,10 @@ final class Packager
             $name = sprintf('%02d_%s.%s', $i, $labelSlug, $f['ext']);
             $members[] = ['name' => $name, 'src' => $f['path']];
             $i++;
+        }
+        // Copy-paste-friendly plain-text summary (for Workday entry).
+        if ($textExport !== '') {
+            $members[] = ['name' => 'Employee-Information.txt', 'string' => $textExport];
         }
         // Human-readable manifest inside the archive.
         $members[] = ['name' => 'README.txt', 'string' => $this->manifest($data, $files, $meta)];
