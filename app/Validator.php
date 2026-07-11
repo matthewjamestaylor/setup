@@ -190,6 +190,16 @@ final class Validator
                     $this->data[$key] = $val;
                     break;
 
+                case 'yesno':
+                    $v = strtolower($val);
+                    if (!in_array($v, ['yes', 'no'], true)) {
+                        $this->fail($key, 'Please answer ' . FieldMap::label($key) . '.');
+                        $this->data[$key] = '';
+                    } else {
+                        $this->data[$key] = $v;
+                    }
+                    break;
+
                 default:
                     $this->store($key, $val, $max);
             }
@@ -201,22 +211,92 @@ final class Validator
     // ------------------------------------------------------------------ //
     private function applyConditionalRules(array $post): void
     {
-        // --- SIN beginning with 9 → temporary resident permit block -------
+        $today = new \DateTimeImmutable('today');
+
+        // --- Pronouns: "other" requires the specify field -----------------
+        if (($this->data['pronouns'] ?? '') === 'other') {
+            if (($this->data['pronouns_other'] ?? '') === '') {
+                $this->fail('pronouns_other', 'Please specify your pronouns.');
+            }
+        } else {
+            $this->data['pronouns_other'] = '';
+        }
+
+        // --- Yes/No detail gates ------------------------------------------
+        foreach ([
+            ['trips_has', 'trips_details', 'Please describe your upcoming trips or time off.'],
+            ['allergies_has', 'allergies_details', 'Please describe your allergies.'],
+            ['medical_has', 'medical_details', 'Please describe your medical conditions.'],
+        ] as [$has, $details, $msg]) {
+            if (($this->data[$has] ?? '') === 'yes') {
+                if (($this->data[$details] ?? '') === '') {
+                    $this->fail($details, $msg);
+                }
+            } else {
+                $this->data[$details] = '';
+            }
+        }
+
+        // --- SIN beginning with 9 → permit block; IRCC only if expired -----
         $sin = $this->data['sin'] ?? '';
-        if ($sin !== '' && $sin[0] === '9') {
-            foreach (['sin_expiry', 'permit_number', 'permit_issued', 'permit_expiry'] as $k) {
+        $isNine = $sin !== '' && ($sin[0] ?? '') === '9';
+        if ($isNine) {
+            foreach (['sin_issued', 'sin_expiry', 'permit_type', 'permit_number', 'permit_issued', 'permit_expiry'] as $k) {
                 if (($this->data[$k] ?? '') === '') {
                     $this->fail($k, FieldMap::label($k) . ' is required because your SIN begins with 9.');
                 }
             }
+            $exp = Support::parseDate($this->data['permit_expiry'] ?? '');
+            $permitExpired = $exp !== null && $exp < $today;
+            if ($permitExpired) {
+                if (($this->data['ircc_letter_id'] ?? '') === '') {
+                    $this->fail('ircc_letter_id', 'IRCC Letter ID is required because your permit is expired.');
+                }
+            } else {
+                $this->data['ircc_letter_id'] = '';
+            }
         } else {
-            // Not a 9-series SIN: clear the permit block so it is never emailed.
-            foreach (['sin_expiry', 'permit_number', 'permit_issued', 'permit_expiry', 'ircc_letter_id', 'permit_restrictions'] as $k) {
+            foreach (['sin_issued', 'sin_expiry', 'permit_type', 'permit_number', 'permit_issued', 'permit_expiry', 'ircc_letter_id'] as $k) {
                 $this->data[$k] = '';
             }
         }
 
-        // --- Availability: enabled day requires valid start < end ----------
+        // --- Government ID expiry required if the selected type renews ------
+        $idType = $this->data['gov_doc_type'] ?? '';
+        $renews = FieldMap::ID_TYPES[$idType]['renews'] ?? false;
+        if ($renews) {
+            $exp = Support::parseDate($this->data['gov_expiry_date'] ?? '');
+            if (($this->data['gov_expiry_date'] ?? '') === '') {
+                $this->fail('gov_expiry_date', 'Expiry Date is required for this ID type.');
+            } elseif ($exp !== null && $exp < $today) {
+                $this->fail('gov_expiry_date', 'This ID appears to be expired — please provide current, valid identification.');
+            }
+        } else {
+            $this->data['gov_expiry_date'] = '';
+        }
+
+        // --- Direct deposit: bank/institution + confirm-account match ------
+        $bank = $this->data['dd_bank'] ?? '';
+        if ($bank === 'other') {
+            if (($this->data['dd_bank_other'] ?? '') === '') {
+                $this->fail('dd_bank_other', 'Please enter the name of your financial institution.');
+            }
+        } else {
+            $this->data['dd_bank_other'] = '';
+            $inst = FieldMap::BANKS[$bank]['institution'] ?? null;
+            if ($inst !== null) {
+                // Authoritative: set the canonical institution number server-side.
+                $this->data['dd_institution_number'] = $inst;
+                unset($this->errors['dd_institution_number']);
+            }
+        }
+        if (($this->data['dd_account_number'] ?? '') !== '' && ($this->data['dd_account_confirm'] ?? '') !== ''
+            && $this->data['dd_account_number'] !== $this->data['dd_account_confirm']) {
+            $this->fail('dd_account_confirm', 'The account numbers do not match — please re-enter.');
+        }
+
+        // --- Availability: enabled day requires start<end; ≥1 day required --
+        $anyDay = false;
         foreach (FieldMap::DAYS as $day => $label) {
             $on = ($this->data["avail_{$day}_enabled"] ?? '') === '1';
             if (!$on) {
@@ -224,6 +304,7 @@ final class Validator
                 $this->data["avail_{$day}_end"]   = '';
                 continue;
             }
+            $anyDay = true;
             $s = $this->data["avail_{$day}_start"] ?? '';
             $e = $this->data["avail_{$day}_end"] ?? '';
             if ($s === '' || $e === '') {
@@ -236,60 +317,190 @@ final class Validator
                 $this->fail("avail_{$day}_end", "{$label} end time must be after the start time.");
             }
         }
-
-        // --- Emergency contact 2: partial → require name + phone -----------
-        $ec2 = ['ec2_name', 'ec2_relationship', 'ec2_phone', 'ec2_email'];
-        $ec2HasData = false;
-        foreach ($ec2 as $k) {
-            if (($this->data[$k] ?? '') !== '') {
-                $ec2HasData = true;
-            }
-        }
-        if ($ec2HasData) {
-            foreach (['ec2_name', 'ec2_phone'] as $k) {
-                if (($this->data[$k] ?? '') === '') {
-                    $this->fail($k, FieldMap::label($k) . ' is required for the secondary contact.');
-                }
-            }
+        if (!$anyDay) {
+            $this->fail('availability', 'Please select at least one day of availability.');
         }
 
-        // --- Certifications: N/A clears; otherwise partial data requires
-        //     the core fields.
+        // --- Certifications: Yes → require details+doc; age-gate Smart Serve -
+        $age = $this->ageFromDob($this->data['date_of_birth'] ?? '');
         foreach (FieldMap::CERTS as $key => $meta) {
-            $na = ($this->data["{$key}_not_applicable"] ?? '') === '1';
-            $groupKeys = ["{$key}_first_name", "{$key}_middle_name", "{$key}_last_name", "{$key}_cert_id", "{$key}_issued", "{$key}_expiry"];
-            if ($meta['provider']) {
-                $groupKeys[] = "{$key}_provider";
-            }
-
-            if ($na) {
-                foreach ($groupKeys as $k) {
+            if (!empty($meta['age_gated']) && $age !== null && $age < ($meta['min_age'] ?? 18)) {
+                // Under the minimum age: skip this certification entirely.
+                $this->data["{$key}_has"] = 'na';
+                foreach ($this->certGroupKeys($key, $meta) as $k) {
                     $this->data[$k] = '';
                 }
                 continue;
             }
-
-            $hasData = false;
-            foreach ($groupKeys as $k) {
-                if (($this->data[$k] ?? '') !== '') {
-                    $hasData = true;
+            if (($this->data["{$key}_has"] ?? '') === 'yes') {
+                $req = ["{$key}_first_name", "{$key}_last_name", "{$key}_cert_id", "{$key}_issued", "{$key}_expiry"];
+                if (!empty($meta['provider'])) {
+                    $req[] = "{$key}_provider";
                 }
-            }
-            if (!$hasData) {
-                // Whole section left blank and not marked N/A → treat as skipped.
-                continue;
-            }
-            // Section is being provided → require identifying core fields.
-            $req = ["{$key}_last_name", "{$key}_cert_id", "{$key}_issued"];
-            if ($meta['provider']) {
-                $req[] = "{$key}_provider";
-            }
-            foreach ($req as $k) {
-                if (($this->data[$k] ?? '') === '') {
-                    $this->fail($k, FieldMap::label($k) . ' is required (or mark this certification Not Applicable).');
+                foreach ($req as $k) {
+                    if (($this->data[$k] ?? '') === '') {
+                        $this->fail($k, FieldMap::label($k) . ' is required.');
+                    }
+                }
+            } else {
+                foreach ($this->certGroupKeys($key, $meta) as $k) {
+                    $this->data[$k] = '';
                 }
             }
         }
+
+        // --- Emergency contacts (repeatable) ------------------------------
+        $this->validateContacts($post);
+    }
+
+    // ------------------------------------------------------------------ //
+    // Emergency contacts (repeatable array: $post['contacts'][i][field])
+    // ------------------------------------------------------------------ //
+    private function validateContacts(array $post): void
+    {
+        $contacts = $post['contacts'] ?? [];
+        if (!is_array($contacts)) {
+            $contacts = [];
+        }
+
+        $ownPhones = array_filter([
+            Support::phoneDigits($this->data['mobile_phone'] ?? ''),
+            Support::phoneDigits($this->data['home_phone'] ?? ''),
+            Support::phoneDigits($this->data['other_phone'] ?? ''),
+        ]);
+        $ownEmails = array_filter([
+            mb_strtolower($this->data['primary_email'] ?? ''),
+            mb_strtolower($this->data['secondary_email'] ?? ''),
+        ]);
+
+        $tmpl  = FieldMap::contactFields();
+        $clean = [];
+        $index = 0;
+
+        foreach ($contacts as $c) {
+            if (!is_array($c) || $index >= FieldMap::MAX_CONTACTS) {
+                continue;
+            }
+            $isPrimary = $index === 0;
+
+            $row = [];
+            $anyData = false;
+            foreach ($tmpl as $fk => $spec) {
+                $raw = Support::oneLine(Support::clean((string) ($c[$fk] ?? ''), 200));
+                [$cv, $err] = $this->checkValue($spec['rule'], $raw, $spec);
+                if ($err !== null) {
+                    $this->fail("contacts.{$index}.{$fk}", $spec['label'] . ' ' . $err . '.');
+                }
+                $row[$fk] = $cv;
+                if ($cv !== '') {
+                    $anyData = true;
+                }
+            }
+
+            // A blank added row (not primary) is simply dropped.
+            if (!$isPrimary && !$anyData) {
+                continue;
+            }
+
+            $reqKeys = ['first_name', 'last_name', 'relationship', 'phone', 'phone_device', 'phone_location'];
+            if ($isPrimary) {
+                $reqKeys[] = 'email';
+                $reqKeys[] = 'email_location';
+            }
+            foreach ($reqKeys as $rk) {
+                if (($row[$rk] ?? '') === '') {
+                    $this->fail("contacts.{$index}.{$rk}", $tmpl[$rk]['label'] . ' is required' . ($isPrimary ? ' for the primary contact' : '') . '.');
+                }
+            }
+            if (($row['relationship'] ?? '') === 'other' && ($row['relationship_other'] ?? '') === '') {
+                $this->fail("contacts.{$index}.relationship_other", 'Please specify the relationship.');
+            }
+            if (($row['email'] ?? '') !== '' && ($row['email_location'] ?? '') === '') {
+                $this->fail("contacts.{$index}.email_location", 'Please choose Home or Work for the email.');
+            }
+
+            // Must not be the employee's own contact info.
+            $cp = Support::phoneDigits($row['phone'] ?? '');
+            if ($cp !== '' && in_array($cp, $ownPhones, true)) {
+                $this->fail("contacts.{$index}.phone", "This matches your own phone number — please provide someone else's.");
+            }
+            $ce = mb_strtolower($row['email'] ?? '');
+            if ($ce !== '' && in_array($ce, $ownEmails, true)) {
+                $this->fail("contacts.{$index}.email", "This matches your own email — please provide someone else's.");
+            }
+
+            $clean[$index] = $row;
+            $index++;
+        }
+
+        if ($index === 0) {
+            $this->fail('contacts.0.first_name', 'At least one emergency contact is required.');
+        }
+        $this->data['contacts'] = $clean;
+    }
+
+    /** Lightweight value validator for repeatable fields. Returns [clean, ?error]. */
+    private function checkValue(string $rule, string $val, array $spec): array
+    {
+        if ($val === '') {
+            return ['', null];
+        }
+        switch ($rule) {
+            case 'name':
+                if (!preg_match("/^[\p{L}][\p{L}\p{M}\s'.\-]{0,}$/u", $val)) {
+                    return [$val, 'contains invalid characters'];
+                }
+                return [mb_substr($val, 0, $spec['len'] ?? 80), null];
+            case 'email':
+                $v = mb_strtolower($val);
+                return filter_var($v, FILTER_VALIDATE_EMAIL) ? [$v, null] : [$v, 'is not a valid email address'];
+            case 'tel':
+                $d = Support::phoneDigits($val);
+                return (strlen($d) >= 10 && strlen($d) <= 15) ? [Support::formatPhone($val), null] : [$val, 'must be a valid phone number'];
+            case 'select':
+                $opts = $spec['options'] ?? [];
+                return array_key_exists($val, $opts) ? [$val, null] : [$val, 'is not a valid choice'];
+            default:
+                return [mb_substr($val, 0, $spec['len'] ?? 100), null];
+        }
+    }
+
+    private function ageFromDob(string $dob): ?int
+    {
+        $dt = Support::parseDate($dob);
+        return $dt ? (int) $dt->diff(new \DateTimeImmutable('today'))->y : null;
+    }
+
+    private function certGroupKeys(string $key, array $meta): array
+    {
+        $keys = ["{$key}_first_name", "{$key}_middle_name", "{$key}_last_name", "{$key}_cert_id", "{$key}_issued", "{$key}_expiry"];
+        if (!empty($meta['provider'])) {
+            $keys[] = "{$key}_provider";
+        }
+        return $keys;
+    }
+
+    /** Effective (conditional) requiredness for a file field. */
+    private function isFileRequired(string $field, array $meta): bool
+    {
+        $sin = $this->data['sin'] ?? '';
+        $isNine = $sin !== '' && ($sin[0] ?? '') === '9';
+        if ($field === 'permit_document') {
+            return $isNine;
+        }
+        if ($field === 'ircc_document') {
+            if (!$isNine) {
+                return false;
+            }
+            $exp = Support::parseDate($this->data['permit_expiry'] ?? '');
+            return $exp !== null && $exp < new \DateTimeImmutable('today');
+        }
+        foreach (FieldMap::CERTS as $ck => $_cm) {
+            if ($field === "{$ck}_document") {
+                return ($this->data["{$ck}_has"] ?? '') === 'yes';
+            }
+        }
+        return (bool) $meta['required'];
     }
 
     // ------------------------------------------------------------------ //
@@ -303,7 +514,7 @@ final class Validator
 
         foreach (FieldMap::FILES as $field => $meta) {
             $f = $filesInput[$field] ?? null;
-            $required = (bool) $meta['required'];
+            $required = $this->isFileRequired($field, $meta);
 
             if (!$f || !isset($f['error']) || $f['error'] === UPLOAD_ERR_NO_FILE) {
                 if ($required) {

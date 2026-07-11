@@ -92,7 +92,7 @@ final class Support
         return preg_replace('/\D+/', '', $v) ?? '';
     }
 
-    /** Pretty-print a 10-digit North American phone number. */
+    /** Pretty-print a 10-digit North American phone number as +1 (416) 454-1814. */
     public static function formatPhone(string $v): string
     {
         $d = self::phoneDigits($v);
@@ -100,7 +100,7 @@ final class Support
             $d = substr($d, 1);
         }
         if (strlen($d) === 10) {
-            return sprintf('(%s) %s-%s', substr($d, 0, 3), substr($d, 3, 3), substr($d, 6));
+            return sprintf('+1 (%s) %s-%s', substr($d, 0, 3), substr($d, 3, 3), substr($d, 6));
         }
         return $v; // leave unusual formats untouched
     }
