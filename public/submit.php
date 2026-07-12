@@ -8,6 +8,31 @@
 
 declare(strict_types=1);
 
+// The client requires a pure JSON body. Buffer from the very first byte so
+// stray output (a BOM or whitespace in an edited config file, a PHP notice)
+// can be discarded instead of corrupting the response, and convert fatal
+// errors (out of memory, execution timeout) — which bypass try/catch — into
+// JSON via the shutdown handler below.
+ob_start();
+register_shutdown_function(static function (): void {
+    if (!empty($GLOBALS['lg_responded'])) {
+        return;
+    }
+    $e = error_get_last();
+    if ($e === null || !in_array($e['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR], true)) {
+        return;
+    }
+    while (ob_get_level() > 0) {
+        @ob_end_clean();
+    }
+    error_log('[onboarding] fatal: ' . $e['message'] . ' @ ' . $e['file'] . ':' . $e['line']);
+    if (!headers_sent()) {
+        http_response_code(500);
+        header('Content-Type: application/json; charset=utf-8');
+    }
+    echo '{"ok":false,"formError":"The server ran into a problem while processing your submission. Please try again with smaller documents or photos, or contact Human Resources directly."}';
+});
+
 require dirname(__DIR__) . '/app/bootstrap.php';
 
 use Legends\Validator;
@@ -24,6 +49,11 @@ header('Cache-Control: no-store');
 
 function respond(array $payload, int $code = 200): never
 {
+    $GLOBALS['lg_responded'] = true;
+    // Discard anything already output (config BOM, notices) — JSON only.
+    while (ob_get_level() > 0) {
+        @ob_end_clean();
+    }
     http_response_code($code);
     $json = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
     if ($json === false) {
@@ -110,6 +140,10 @@ register_shutdown_function(static function () use ($workDir): void {
     Support::shredDir($workDir);
 });
 
+// Resizing photos, building the PDF, encrypting the ZIP, and SMTP delivery
+// can exceed a shared host's default 30s limit; extend it where permitted.
+@set_time_limit(300);
+
 try {
     $validator = new Validator((array) cfg('uploads', []), $workDir);
     $result = $validator->validate($_POST, $_FILES);
@@ -137,7 +171,9 @@ try {
     respond(['ok' => true, 'reference' => $meta['reference']]);
 } catch (\Throwable $e) {
     error_log('[onboarding] ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine());
-    $msg = cfg('app.debug', false)
+    // Test-mode submissions surface the real error (the test token is
+    // owner-only), so the site owner can diagnose live issues safely.
+    $msg = (cfg('app.debug', false) || $isTest)
         ? ('Error: ' . $e->getMessage())
         : 'We could not process your submission right now. Please try again in a few minutes, or contact Human Resources directly.';
     respond(['ok' => false, 'formError' => $msg], 500);
