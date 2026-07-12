@@ -184,6 +184,20 @@
     });
   });
 
+  // ---------------------------------------------------------------- availability days
+  $all('[data-day-toggle]').forEach(function (cb) {
+    cb.addEventListener('change', function () {
+      var day = cb.closest('.avail-day'), times = day ? day.querySelector('.daytimes') : null;
+      if (!times) return;
+      times.hidden = !cb.checked;
+      if (!cb.checked) {
+        $all('input', times).forEach(function (t) { t.value = ''; setError(t, ''); });
+      }
+      var ae = document.getElementById('availability-err');
+      if (cb.checked && ae) ae.classList.remove('show');
+    });
+  });
+
   // ---------------------------------------------------------------- SIN / permit / IRCC
   var sinInput = form.querySelector('[data-sin]');
   var permitBlock = document.getElementById('permit-block');
