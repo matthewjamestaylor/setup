@@ -473,30 +473,59 @@
   function tinyImg(cb) { var c = document.createElement('canvas'); c.width = 400; c.height = 500; var x = c.getContext('2d'); x.fillStyle = '#dfe4ea'; x.fillRect(0, 0, 400, 500); x.fillStyle = '#b0967f'; x.beginPath(); x.ellipse(200, 240, 90, 120, 0, 0, 7); x.fill(); c.toBlob(function (b) { cb(new File([b], 'photo.jpg', { type: 'image/jpeg' })); }, 'image/jpeg', 0.85); }
   function setVal(name, v) { var el = form.elements[name]; if (!el) return; el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); }
   function pickRadio(name, v) { var r = form.querySelector('input[name="' + name + '"][value="' + v + '"]'); if (r) { r.checked = true; r.dispatchEvent(new Event('change', { bubbles: true })); } }
+  // Fills the HARDEST path through the form so every conditional branch is
+  // exercised: "other" pronouns/relationship/bank, a second contact, yes +
+  // details on trips/allergies/medical, a SIN starting with 9 (permit chain),
+  // an EXPIRED permit (IRCC letter chain), and all four certifications with
+  // details and uploads.
   function fillTest() {
     form.elements['privacy_ack'].checked = true;
     setVal('first_name', 'Jane'); setVal('middle_name', 'A'); setVal('last_name', 'Sample');
-    setVal('preferred_name', 'Janie'); setVal('pronouns', 'she/her');
+    setVal('preferred_name', 'Janie');
+    setVal('pronouns', 'other'); setVal('pronouns_other', 'ze/zir');
     setVal('date_of_birth', '1996-04-12');
     setVal('street_address', '123 King St W'); setVal('unit', '4B'); setVal('city', 'Toronto'); setVal('province', 'Ontario'); setVal('postal_code', 'M5V 2T6');
-    setVal('mobile_phone', '4165550142'); setVal('primary_email', 'jane.sample@example.com');
-    // contact 0
-    var c0 = $('.contact', contactsWrap);
-    c0.querySelector('[data-cf=first_name]').value = 'John'; c0.querySelector('[data-cf=last_name]').value = 'Sample';
-    setSel(c0.querySelector('[data-cf=relationship]'), 'parent'); c0.querySelector('[data-cf=phone]').value = '+1 (416) 555-0199';
-    setSel(c0.querySelector('[data-cf=phone_device]'), 'mobile'); setSel(c0.querySelector('[data-cf=phone_location]'), 'home');
-    c0.querySelector('[data-cf=email]').value = 'john.sample@example.com'; setSel(c0.querySelector('[data-cf=email_location]'), 'home');
-    // availability
-    var mon = form.elements['avail_monday_enabled']; mon.checked = true; mon.dispatchEvent(new Event('change', { bubbles: true }));
-    setVal('avail_monday_start', '17:00'); setVal('avail_monday_end', '23:00'); setVal('desired_hours', '32');
-    pickRadio('trips_has', 'no'); pickRadio('allergies_has', 'no'); pickRadio('medical_has', 'no');
-    setVal('sin', '046 454 286');
+    setVal('mobile_phone', '4165550142'); setVal('home_phone', '4165550143'); setVal('other_phone', '4165550144');
+    setVal('primary_email', 'jane.sample@example.com'); setVal('secondary_email', 'jane.alt@example.com');
+    // contact 0 (standard relationship)
+    fillContact($all('.contact', contactsWrap)[0], 'John', 'Sample', 'parent', '', '+1 (416) 555-0199', 'mobile', 'home', 'john.sample@example.com', 'home');
+    // contact 1 ("other" relationship — added on first run only)
+    if ($all('.contact', contactsWrap).length < 2) document.getElementById('addContact').click();
+    fillContact($all('.contact', contactsWrap)[1], 'Mary', 'Smith', 'other', 'Neighbour', '+1 (647) 555-0123', 'landline', 'work', 'mary.smith@example.com', 'work');
+    // availability: two days + hours + comments
+    ['monday', 'friday'].forEach(function (d) { var cb = form.elements['avail_' + d + '_enabled']; cb.checked = true; cb.dispatchEvent(new Event('change', { bubbles: true })); });
+    setVal('avail_monday_start', '17:00'); setVal('avail_monday_end', '23:00');
+    setVal('avail_friday_start', '16:00'); setVal('avail_friday_end', '23:30');
+    setVal('desired_hours', '32'); setVal('availability_comments', 'Prefer evening shifts.');
+    // yes + details reveals
+    pickRadio('trips_has', 'yes'); setVal('trips_details', 'Family trip Dec 20–27.');
+    pickRadio('allergies_has', 'yes'); setVal('allergies_details', 'Peanuts (carry an EpiPen).');
+    pickRadio('medical_has', 'yes'); setVal('medical_details', 'Mild asthma.');
+    // SIN starting with 9 (Luhn-valid) → SIN dates + permit; EXPIRED permit → IRCC letter
+    setVal('sin', '900 000 001');
+    setVal('sin_issued', '2024-01-15'); setVal('sin_expiry', futureDate(1));
+    setSel(form.elements['permit_type'], 'work'); setVal('permit_number', 'P123456789');
+    setVal('permit_issued', '2024-01-15'); setVal('permit_expiry', pastDate(10));
+    setVal('ircc_letter_id', 'IRCC-2026-778899');
     setVal('gov_first_name', 'Jane'); setVal('gov_last_name', 'Sample'); setSel(form.elements['gov_doc_type'], 'drivers_licence');
     setVal('gov_doc_number', 'S1234-56789-01234'); setVal('gov_expiry_date', futureDate(4));
-    setSel(form.elements['dd_bank'], 'rbc'); setVal('dd_account_holder', 'Jane A Sample'); setVal('dd_transit', '00123');
+    // "Other" bank → institution name + manual institution number
+    setSel(form.elements['dd_bank'], 'other'); setVal('dd_bank_other', 'DUCA Credit Union');
+    setVal('dd_institution_number', '828');
+    setVal('dd_account_holder', 'Jane A Sample'); setVal('dd_transit', '00123');
     setVal('dd_account_number', '1234567'); acctC.value = '1234567';
-    // certs
-    $all('.cert').forEach(function (c) { var r = c.querySelector('input[data-cert-has][value=no]'); if (r && !c.hidden) { r.checked = true; r.dispatchEvent(new Event('change', { bubbles: true })); } });
+    // all four certifications: yes + details + upload
+    $all('.cert').forEach(function (c) {
+      if (c.hidden) return;
+      var key = c.getAttribute('data-cert');
+      var r = c.querySelector('input[data-cert-has][value=yes]');
+      if (r) { r.checked = true; r.dispatchEvent(new Event('change', { bubbles: true })); }
+      setVal(key + '_first_name', 'Jane'); setVal(key + '_last_name', 'Sample');
+      setVal(key + '_cert_id', key.toUpperCase() + '-99887');
+      setVal(key + '_issued', '2024-06-01'); setVal(key + '_expiry', futureDate(3));
+      if (form.elements[key + '_provider']) setVal(key + '_provider', 'Toronto Training Institute');
+      setFile(key + '_document', tinyPdf());
+    });
     // declaration
     form.elements['declaration_ack'].checked = true; form.elements['comms_consent'].checked = true;
     setSel(form.elements['preferred_contact'], 'email'); setVal('employee_name', 'Jane A Sample');
@@ -504,11 +533,22 @@
     if (pad) { var x = pad.getContext('2d'); x.beginPath(); x.moveTo(20, 120); x.lineTo(120, 40); x.lineTo(220, 120); x.lineTo(400, 60); x.stroke(); hasSig = true; }
     // files
     setFile('gov_document', tinyPdf()); setFile('sin_document', tinyPdf()); setFile('dd_document', tinyPdf());
+    setFile('permit_document', tinyPdf()); setFile('ircc_document', tinyPdf());
     tinyImg(function (f) { setFile('headshot', f); });
-    banner('Test data filled — jump to Review & Sign and submit.');
+    banner('Test data filled (all conditional paths) — jump to Review & Sign and submit.');
+  }
+  function fillContact(c, first, last, rel, relOther, phone, device, loc, email, emailLoc) {
+    if (!c) return;
+    c.querySelector('[data-cf=first_name]').value = first; c.querySelector('[data-cf=last_name]').value = last;
+    setSel(c.querySelector('[data-cf=relationship]'), rel);
+    if (relOther) { var ro = c.querySelector('[data-cf=relationship_other]'); if (ro) ro.value = relOther; }
+    c.querySelector('[data-cf=phone]').value = phone;
+    setSel(c.querySelector('[data-cf=phone_device]'), device); setSel(c.querySelector('[data-cf=phone_location]'), loc);
+    c.querySelector('[data-cf=email]').value = email; setSel(c.querySelector('[data-cf=email_location]'), emailLoc);
   }
   function setSel(el, v) { if (!el) return; el.value = v; el.dispatchEvent(new Event('change', { bubbles: true })); }
   function futureDate(years) { var d = new Date(); d.setFullYear(d.getFullYear() + years); return d.toISOString().slice(0, 10); }
+  function pastDate(days) { var d = new Date(); d.setDate(d.getDate() - days); return d.toISOString().slice(0, 10); }
 
   showStep(0);
 })();
