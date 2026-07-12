@@ -78,6 +78,16 @@ if ($scenario === 'missing') {
 if ($scenario === 'sin9') {
     $post['sin'] = '900000008';
 }
+if ($scenario === 'hugephoto') {
+    // A PNG whose header claims 20000x20000 (400 MP): getimagesize() trusts
+    // the header, so this exercises the decode-bomb guard without the memory.
+    $png = "\x89PNG\r\n\x1a\n"
+        . pack('N', 13) . 'IHDR' . pack('NN', 20000, 20000) . "\x08\x02\x00\x00\x00" . pack('N', 0)
+        . pack('N', 0) . 'IDAT' . pack('N', 0)
+        . pack('N', 0) . 'IEND' . pack('N', 0xAE426082);
+    file_put_contents("$tmp/huge.png", $png);
+    $files['headshot'] = ['name' => 'huge.png', 'type' => 'image/png', 'tmp_name' => "$tmp/huge.png", 'error' => 0, 'size' => filesize("$tmp/huge.png")];
+}
 
 $_SERVER['REQUEST_METHOD'] = 'POST';
 $_SERVER['REMOTE_ADDR'] = '127.0.0.1';

@@ -455,7 +455,7 @@
     sigInput.value = sd;
     sending.hidden = false; btnSubmit.disabled = true;
     fetch(form.action, { method: 'POST', body: new FormData(form), headers: { 'X-Requested-With': 'fetch' } })
-      .then(function (r) { return r.json().catch(function () { return { ok: false, formError: 'Unexpected server response.' }; }); })
+      .then(function (r) { return r.json().catch(function () { return { ok: false, formError: 'Unexpected server response (HTTP ' + r.status + '). Please try again; if it keeps happening, contact Human Resources and mention this code.' }; }); })
       .then(function (data) {
         sending.hidden = true; btnSubmit.disabled = false;
         if (data.ok) { submitted = true; document.getElementById('successRef').textContent = data.reference || '—'; success.hidden = false; }

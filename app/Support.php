@@ -249,4 +249,21 @@ final class Support
         }
         return round($n, $n < 10 && $i > 0 ? 1 : 0) . ' ' . $u[$i];
     }
+
+    /** Parse a php.ini byte value ("256M", "1G", "-1" = unlimited) into bytes. */
+    public static function iniBytes(string $v): int
+    {
+        $v = trim($v);
+        if ($v === '' || $v === '-1') {
+            return -1; // unlimited
+        }
+        $unit = strtolower(substr($v, -1));
+        $n = (int) $v;
+        return match ($unit) {
+            'g' => $n * 1024 * 1024 * 1024,
+            'm' => $n * 1024 * 1024,
+            'k' => $n * 1024,
+            default => $n,
+        };
+    }
 }

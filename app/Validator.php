@@ -647,6 +647,27 @@ final class Validator
         }
         [$w, $h] = $info;
         $type = $info[2];
+
+        // GD decodes at ~8 bytes/pixel, so a modern phone photo (e.g. 48 MP)
+        // can blow past a shared host's memory_limit and abort the request
+        // with an uncatchable fatal. Guard before decoding: refuse absurd
+        // dimensions outright, then make sure enough memory is available
+        // (raising the limit if the host allows it).
+        if ($w < 1 || $h < 1 || ($w * $h) > 80_000_000) {
+            $this->fail($field, 'This photo\'s dimensions are too large to process. Please export it at a smaller size — around 2000 pixels on the long edge is plenty.');
+            return null;
+        }
+        $needed = (int) (($w * $h) * 8 * 1.15) + (16 << 20); // src + resample overhead
+        $limit  = Support::iniBytes((string) ini_get('memory_limit'));
+        if ($limit > 0 && ($limit - memory_get_usage(true)) < $needed) {
+            @ini_set('memory_limit', (string) (memory_get_usage(true) + $needed + (64 << 20)));
+            $limit = Support::iniBytes((string) ini_get('memory_limit'));
+            if ($limit > 0 && ($limit - memory_get_usage(true)) < $needed) {
+                $this->fail($field, 'This photo is too large for the server to process (' . $w . '×' . $h . '). Please use a smaller photo — around 2000 pixels on the long edge is plenty.');
+                return null;
+            }
+        }
+
         $src = match ($type) {
             IMAGETYPE_JPEG => @imagecreatefromjpeg($tmp),
             IMAGETYPE_PNG  => @imagecreatefrompng($tmp),
