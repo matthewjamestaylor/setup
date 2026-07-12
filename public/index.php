@@ -213,7 +213,7 @@ foreach (FieldMap::BANKS as $k => $m) {
 <meta name="robots" content="noindex, nofollow">
 <title>Employee Information · Legends Global</title>
 <link rel="preconnect" href="https://challenges.cloudflare.com">
-<link rel="stylesheet" href="assets/css/app.css?v=6">
+<link rel="stylesheet" href="assets/css/app.css?v=7">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='13' fill='none' stroke='%23111' stroke-width='5'/></svg>">
 <?php if ($tsEnabled): ?>
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
@@ -509,6 +509,6 @@ foreach (FieldMap::BANKS as $k => $m) {
 </main>
 
 <footer class="foot"><span>Legends Global · Confidential</span><span>Need help? Contact Human Resources.</span></footer>
-<script src="assets/js/app.js?v=6" defer></script>
+<script src="assets/js/app.js?v=7" defer></script>
 </body>
 </html>
