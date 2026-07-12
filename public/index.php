@@ -213,7 +213,7 @@ foreach (FieldMap::BANKS as $k => $m) {
 <meta name="robots" content="noindex, nofollow">
 <title>Employee Information · Legends Global</title>
 <link rel="preconnect" href="https://challenges.cloudflare.com">
-<link rel="stylesheet" href="assets/css/app.css?v=5">
+<link rel="stylesheet" href="assets/css/app.css?v=6">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='13' fill='none' stroke='%23111' stroke-width='5'/></svg>">
 <?php if ($tsEnabled): ?>
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
@@ -363,9 +363,11 @@ foreach (FieldMap::BANKS as $k => $m) {
       <div class="field col-3"><p class="help"><a href="https://www.canada.ca/en/employment-social-development/services/my-account/sin.html" target="_blank" rel="noopener">Check or download your SIN from Service Canada →</a></p></div>
     </div>
     <div id="permit-block" class="conditional" hidden>
-      <div class="cond-note">Because your SIN begins with <strong>9</strong>, please provide your work/study permit details.</div>
+      <div class="cond-note">Because your SIN begins with <strong>9</strong>, please provide your SIN dates and work/study permit details.</div>
       <div class="grid">
         <?php
+        field('sin_issued', 'SIN Issued Date', ['type' => 'date', 'col' => 1, 'validate' => 'date']);
+        field('sin_expiry', 'SIN Expiry Date', ['type' => 'date', 'col' => 1, 'validate' => 'date']);
         selectField('permit_type', 'Permit Type', FieldMap::PERMIT_TYPES, ['col' => 1]);
         field('permit_number', 'Permit Number', ['col' => 1]);
         field('permit_issued', 'Permit Issued Date', ['type' => 'date', 'col' => 1, 'validate' => 'date']);
@@ -507,6 +509,6 @@ foreach (FieldMap::BANKS as $k => $m) {
 </main>
 
 <footer class="foot"><span>Legends Global · Confidential</span><span>Need help? Contact Human Resources.</span></footer>
-<script src="assets/js/app.js?v=5" defer></script>
+<script src="assets/js/app.js?v=6" defer></script>
 </body>
 </html>

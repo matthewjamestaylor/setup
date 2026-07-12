@@ -78,6 +78,43 @@ if ($scenario === 'missing') {
 if ($scenario === 'sin9') {
     $post['sin'] = '900000008';
 }
+if ($scenario === 'full') {
+    // Every conditional branch at once (mirrors the browser "Fill test data"):
+    // other-pronouns, SIN-9 + permit + EXPIRED permit + IRCC, other-bank,
+    // other-relationship contact, and all four certifications with uploads.
+    $post['pronouns'] = 'other';
+    $post['pronouns_other'] = 'ze/zir';
+    $post['home_phone'] = '+1 (416) 555-0143';
+    $post['other_phone'] = '+1 (416) 555-0144';
+    $post['secondary_email'] = 'jane.alt@example.com';
+    $post['contacts'][1]['relationship'] = 'other';
+    $post['contacts'][1]['relationship_other'] = 'Neighbour';
+    $post['medical_has'] = 'yes';
+    $post['medical_details'] = 'Mild asthma.';
+    $post['sin'] = '900 000 001'; // Luhn-valid, starts with 9
+    $post['sin_issued'] = '2024-01-15';
+    $post['sin_expiry'] = (new DateTimeImmutable('+1 year'))->format('Y-m-d');
+    $post['permit_type'] = 'work';
+    $post['permit_number'] = 'P123456789';
+    $post['permit_issued'] = '2024-01-15';
+    $post['permit_expiry'] = (new DateTimeImmutable('-10 days'))->format('Y-m-d'); // expired → IRCC required
+    $post['ircc_letter_id'] = 'IRCC-2026-778899';
+    $post['dd_bank'] = 'other';
+    $post['dd_bank_other'] = 'DUCA Credit Union';
+    $post['dd_institution_number'] = '828';
+    foreach (['foodsafety', 'jhsc1', 'jhsc2'] as $k) {
+        $post["{$k}_has"] = 'yes';
+        $post["{$k}_first_name"] = 'Jane';
+        $post["{$k}_last_name"] = "O'Brien-Smith";
+        $post["{$k}_cert_id"] = strtoupper($k) . '-99887';
+        $post["{$k}_issued"] = '2024-06-01';
+        $post["{$k}_expiry"] = $future;
+        $post["{$k}_provider"] = 'Toronto Training Institute';
+        $files["{$k}_document"] = ['name' => "$k.pdf", 'type' => 'application/pdf', 'tmp_name' => "$tmp/doc.pdf", 'error' => 0, 'size' => filesize("$tmp/doc.pdf")];
+    }
+    $files['permit_document'] = ['name' => 'permit.pdf', 'type' => 'application/pdf', 'tmp_name' => "$tmp/doc.pdf", 'error' => 0, 'size' => filesize("$tmp/doc.pdf")];
+    $files['ircc_document']   = ['name' => 'ircc.pdf', 'type' => 'application/pdf', 'tmp_name' => "$tmp/doc.pdf", 'error' => 0, 'size' => filesize("$tmp/doc.pdf")];
+}
 if ($scenario === 'hugephoto') {
     // A PNG whose header claims 20000x20000 (400 MP): getimagesize() trusts
     // the header, so this exercises the decode-bomb guard without the memory.
