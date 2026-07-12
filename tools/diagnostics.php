@@ -104,4 +104,12 @@ $out .= $fail === 0
 if ($cli && $gateKey !== '') {
     $out .= "Browser access key: {$gateKey}\n";
 }
+// The test-mode token is derived from the passphrase in THIS host's config,
+// so the link printed here is always the correct one for this site. (Output
+// is owner-only: CLI, or web gated by the derived access key above.)
+if ($pass !== '') {
+    $out .= "Test-mode link:     index.php?test=" . Support::testToken() . "\n";
+    $out .= "                    (shows the TEST MODE bar + Fill-test-data button; submissions are\n";
+    $out .= "                    marked [TEST] and routed to mail.test_recipient, never HR)\n";
+}
 echo $cli ? $out : $out;
