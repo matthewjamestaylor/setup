@@ -452,16 +452,32 @@
     if (!allOk) { if (jumpTo !== null && jumpTo !== current) showStep(jumpTo); validateStep(jumpTo); banner('Please fix the highlighted fields before submitting.'); return; }
     if (totalUpload() > MAX_TOTAL) { banner('Your uploads exceed ' + humanSize(MAX_TOTAL) + '. Please use smaller files.'); return; }
     var sd = signatureData(); if (!sd) { showStep(total - 1); banner('Please add your signature.'); return; }
-    sigInput.value = sd;
     sending.hidden = false; btnSubmit.disabled = true;
-    fetch(form.action, { method: 'POST', body: new FormData(form), headers: { 'X-Requested-With': 'fetch' } })
-      .then(function (r) { return r.json().catch(function () { return { ok: false, formError: 'Unexpected server response (HTTP ' + r.status + '). Please try again; if it keeps happening, contact Human Resources and mention this code.' }; }); })
-      .then(function (data) {
-        sending.hidden = true; btnSubmit.disabled = false;
-        if (data.ok) { submitted = true; document.getElementById('successRef').textContent = data.reference || '—'; success.hidden = false; }
-        else { if (window.turnstile) try { turnstile.reset(); } catch (e) {} if (data.errors) { applyServerErrors(data.errors); banner('Some details need attention.'); } else banner(data.formError || 'We could not process your submission.'); }
-      })
-      .catch(function () { sending.hidden = true; btnSubmit.disabled = false; banner('Network error. Please try again.'); });
+    function doSend(fd) {
+      fetch(form.action, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'fetch' } })
+        .then(function (r) { return r.json().catch(function () { return { ok: false, formError: 'Unexpected server response (HTTP ' + r.status + '). Please try again; if it keeps happening, contact Human Resources and mention this code.' }; }); })
+        .then(function (data) {
+          sending.hidden = true; btnSubmit.disabled = false;
+          if (data.ok) { submitted = true; document.getElementById('successRef').textContent = data.reference || '—'; success.hidden = false; }
+          else { if (window.turnstile) try { turnstile.reset(); } catch (e) {} if (data.errors) { applyServerErrors(data.errors); banner('Some details need attention.'); } else banner(data.formError || 'We could not process your submission.'); }
+        })
+        .catch(function () { sending.hidden = true; btnSubmit.disabled = false; banner('Network error. Please try again.'); });
+    }
+    // Send the signature as a real file part: host firewalls often 403 a
+    // large base64 blob in a text field but accept it as an ordinary upload.
+    // The data-URL text field remains the fallback if toBlob is unavailable.
+    sigInput.value = '';
+    if (pad && pad.toBlob) {
+      pad.toBlob(function (b) {
+        if (!b) sigInput.value = sd;
+        var fd = new FormData(form);
+        if (b) fd.append('signature_file', b, 'signature.png');
+        doSend(fd);
+      }, 'image/png');
+    } else {
+      sigInput.value = sd;
+      doSend(new FormData(form));
+    }
   });
   window.addEventListener('beforeunload', function (e) { if (dirty && !submitted) { e.preventDefault(); e.returnValue = ''; } });
 

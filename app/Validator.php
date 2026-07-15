@@ -35,7 +35,7 @@ final class Validator
         $this->validateScalars($post);
         $this->applyConditionalRules($post);
         $this->processUploads($filesInput);
-        $this->processSignature($post);
+        $this->processSignature($post, $filesInput);
 
         return [
             'ok'        => $this->errors === [],
@@ -701,21 +701,38 @@ final class Validator
     }
 
     // ------------------------------------------------------------------ //
-    // Drawn signature (data URL → PNG in workDir)
+    // Drawn signature → PNG in workDir.
+    // Preferred transport is a multipart file part (signature_file): web
+    // application firewalls on shared hosts commonly 403 a large base64 blob
+    // in a text field, but treat file parts as ordinary uploads. The legacy
+    // data-URL text field (signature) is kept as a fallback.
     // ------------------------------------------------------------------ //
-    private function processSignature(array $post): void
+    private function processSignature(array $post, array $files = []): void
     {
-        $raw = (string) ($post['signature'] ?? '');
-        if ($raw === '') {
-            $this->fail('signature', 'A signature is required.');
-            return;
+        $bin = null;
+        $up = $files['signature_file'] ?? null;
+        if (is_array($up) && ($up['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK && is_string($up['tmp_name'] ?? null)) {
+            if (($up['size'] ?? 0) > 600 * 1024) {
+                $this->fail('signature', 'The signature is invalid or too large. Please sign again.');
+                return;
+            }
+            $bin = @file_get_contents($up['tmp_name']);
         }
-        if (!preg_match('#^data:image/png;base64,([A-Za-z0-9+/=]+)$#', $raw, $m)) {
-            $this->fail('signature', 'The signature could not be read. Please sign again.');
-            return;
+
+        if (!is_string($bin) || $bin === '') {
+            $raw = (string) ($post['signature'] ?? '');
+            if ($raw === '') {
+                $this->fail('signature', 'A signature is required.');
+                return;
+            }
+            if (!preg_match('#^data:image/png;base64,([A-Za-z0-9+/=]+)$#', $raw, $m)) {
+                $this->fail('signature', 'The signature could not be read. Please sign again.');
+                return;
+            }
+            $bin = base64_decode($m[1], true);
         }
-        $bin = base64_decode($m[1], true);
-        if ($bin === false || strlen($bin) < 200 || strlen($bin) > 600 * 1024) {
+
+        if (!is_string($bin) || strlen($bin) < 200 || strlen($bin) > 600 * 1024) {
             $this->fail('signature', 'The signature is invalid or too large. Please sign again.');
             return;
         }

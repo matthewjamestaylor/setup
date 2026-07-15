@@ -115,6 +115,12 @@ if ($scenario === 'full') {
     $files['permit_document'] = ['name' => 'permit.pdf', 'type' => 'application/pdf', 'tmp_name' => "$tmp/doc.pdf", 'error' => 0, 'size' => filesize("$tmp/doc.pdf")];
     $files['ircc_document']   = ['name' => 'ircc.pdf', 'type' => 'application/pdf', 'tmp_name' => "$tmp/doc.pdf", 'error' => 0, 'size' => filesize("$tmp/doc.pdf")];
 }
+if ($scenario === 'sigfile') {
+    // Signature delivered as a multipart file part (the preferred transport)
+    // instead of the legacy base64 data-URL text field.
+    unset($post['signature']);
+    $files['signature_file'] = ['name' => 'signature.png', 'type' => 'image/png', 'tmp_name' => "$tmp/sig.png", 'error' => 0, 'size' => filesize("$tmp/sig.png")];
+}
 if ($scenario === 'hugephoto') {
     // A PNG whose header claims 20000x20000 (400 MP): getimagesize() trusts
     // the header, so this exercises the decode-bomb guard without the memory.
