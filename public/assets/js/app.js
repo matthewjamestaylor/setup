@@ -37,7 +37,13 @@
   function ageFrom(dob) { if (!/^\d{4}-\d{2}-\d{2}$/.test(dob)) return null; var d = new Date(dob + 'T00:00:00'), t = new Date(); var a = t.getFullYear() - d.getFullYear(); var m = t.getMonth() - d.getMonth(); if (m < 0 || (m === 0 && t.getDate() < d.getDate())) a--; return a; }
 
   function fmtPhone(v) {
-    var d = digits(v); if (d.length === 11 && d[0] === '1') d = d.slice(1); d = d.slice(0, 10);
+    var d = digits(v);
+    // A leading 1 is the "+1" prefix (ours or a pasted country code), never
+    // part of the number itself — NANP area codes cannot start with 1. It
+    // must be stripped BEFORE reformatting, or each keystroke re-counts the
+    // prefix's 1 as input and the value compounds into garbage.
+    if (/^\s*\+?1/.test(v)) d = d.replace(/^1/, '');
+    d = d.slice(0, 10);
     if (!d.length) return '';
     if (d.length < 4) return '+1 (' + d;
     if (d.length < 7) return '+1 (' + d.slice(0, 3) + ') ' + d.slice(3);
@@ -157,7 +163,12 @@
 
   // ---------------------------------------------------------------- phone format
   function attachPhone(inp) {
-    inp.addEventListener('input', function () { var p = inp.selectionStart === inp.value.length; inp.value = fmtPhone(inp.value); });
+    inp.addEventListener('input', function () {
+      // Only reformat while the caret is at the end — reformatting during a
+      // mid-string edit would yank the cursor to the end on every keystroke.
+      if (inp.selectionStart === inp.value.length) inp.value = fmtPhone(inp.value);
+    });
+    inp.addEventListener('blur', function () { inp.value = fmtPhone(inp.value); });
   }
   $all('[data-phone]', form).forEach(attachPhone);
 
