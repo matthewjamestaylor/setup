@@ -480,7 +480,12 @@
         .then(function (r) { return r.json().catch(function () { return { ok: false, formError: 'Unexpected server response (HTTP ' + r.status + '). Please try again; if it keeps happening, contact Human Resources and mention this code.' }; }); })
         .then(function (data) {
           sending.hidden = true; btnSubmit.disabled = false;
-          if (data.ok) { submitted = true; document.getElementById('successRef').textContent = data.reference || '—'; success.hidden = false; }
+          if (data.ok) {
+            submitted = true; document.getElementById('successRef').textContent = data.reference || '—';
+            var sn = document.getElementById('successNote');
+            if (sn) { sn.textContent = data.note || ''; sn.hidden = !data.note; }
+            success.hidden = false;
+          }
           else { if (window.turnstile) try { turnstile.reset(); } catch (e) {} if (data.errors) { applyServerErrors(data.errors); banner('Some details need attention.'); } else banner(data.formError || 'We could not process your submission.'); }
         })
         .catch(function () { sending.hidden = true; btnSubmit.disabled = false; banner('Network error. Please try again.'); });

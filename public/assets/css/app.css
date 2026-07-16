@@ -227,3 +227,6 @@ textarea{resize:vertical}
   .btn,.btn-ghost{flex:1}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* Success-overlay warning note (e.g. test-mode fell back to disk) */
+.notewarn{color:#8a6d1a;background:#fdf6e3;border:1px solid #f0e2b6;border-radius:8px;padding:8px 12px;font-size:13px}
