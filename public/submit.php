@@ -80,9 +80,11 @@ if ($_POST === [] && $_FILES === [] && $contentLength > 0) {
 //     [TEST], routes it to the test inbox, and relaxes the anti-abuse checks.
 $isTest = Support::testMode($_POST['test_token'] ?? null);
 
-// --- Honeypot: a hidden field only a bot would fill. Silently accept & drop.
-$honeypot = (string) cfg('security.honeypot_field', 'company_website');
+// --- Honeypot: a hidden field only a bot would fill. Silently accept & drop —
+//     but LOG it, so a false positive (e.g. browser autofill) is diagnosable.
+$honeypot = (string) cfg('security.honeypot_field', 'hp_check_field');
 if (trim((string) ($_POST[$honeypot] ?? '')) !== '') {
+    error_log('[onboarding] honeypot tripped (field "' . $honeypot . '", ' . strlen((string) $_POST[$honeypot]) . ' bytes) — submission silently dropped.');
     respond(['ok' => true, 'reference' => strtoupper(Support::token(3))]);
 }
 
@@ -166,9 +168,9 @@ try {
         (string) cfg('package.filename_prefix', 'LegendsGlobal-NewHire')
     ))->build($result['data'], $pdfPath, $result['files'], $meta, $workDir, $textExport);
 
-    (new Mailer((array) cfg('mail', []), (array) cfg('hr', [])))->send($package, $result['data'], $meta, $isTest);
+    $note = (new Mailer((array) cfg('mail', []), (array) cfg('hr', [])))->send($package, $result['data'], $meta, $isTest);
 
-    respond(['ok' => true, 'reference' => $meta['reference']]);
+    respond(['ok' => true, 'reference' => $meta['reference']] + ($note !== null ? ['note' => $note] : []));
 } catch (\Throwable $e) {
     error_log('[onboarding] ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine());
     // Test-mode submissions surface the real error (the test token is

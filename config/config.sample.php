@@ -110,7 +110,7 @@ return [
 
     // ----- Anti-spam (in addition to Turnstile) ----------------------------
     'security' => [
-        'honeypot_field'    => 'company_website', // hidden; bots fill it → reject
+        'honeypot_field'    => 'hp_check_field',   // hidden bot trap; keep the name autofill-neutral
         'min_submit_seconds' => (int) env('MIN_SUBMIT_SECONDS', '8'), // faster ⇒ bot
     ],
 ];

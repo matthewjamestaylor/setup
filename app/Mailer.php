@@ -26,9 +26,16 @@ final class Mailer
      * @param array $meta     ['reference'=>.., 'timestamp'=>..]
      * @throws \RuntimeException on send failure
      */
-    public function send(array $package, array $data, array $meta, bool $isTest = false): void
+    /**
+     * Sends (or, in fallback cases, logs) the submission email.
+     * Returns a human-readable note when the message was NOT actually emailed
+     * (test mode with no test recipient), so the UI can say so instead of
+     * looking like a normal send — otherwise null.
+     */
+    public function send(array $package, array $data, array $meta, bool $isTest = false): ?string
     {
         $transport = strtolower((string) ($this->mailCfg['transport'] ?? 'smtp'));
+        $note = null;
 
         // Test submissions go to the test recipient (never HR). If none is set,
         // fall back to writing a preview .eml so a live [TEST] never reaches HR.
@@ -36,6 +43,8 @@ final class Mailer
         $testHasRecipient = $isTest && filter_var($testRecipient, FILTER_VALIDATE_EMAIL);
         if ($isTest && !$testHasRecipient) {
             $transport = 'log';
+            $note = 'No test recipient is configured (mail.test_recipient in config/config.php), '
+                . 'so this TEST submission was saved on the server (storage/mail) instead of being emailed.';
         }
 
         $required = $transport === 'smtp'
@@ -131,13 +140,14 @@ final class Mailer
                     throw new \RuntimeException('Could not write the mail log file. Check mail.log_dir permissions.');
                 }
                 @chmod($file, 0600);
-                return;
+                return $note;
             }
 
             $mail->send();
         } catch (PHPMailerException $e) {
             throw new \RuntimeException('Email could not be sent: ' . $mail->ErrorInfo, 0, $e);
         }
+        return $note;
     }
 
     private function htmlBody(string $employee, array $data, array $meta, array $package): string

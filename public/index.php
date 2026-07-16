@@ -12,7 +12,7 @@ $turnstile = new Turnstile((array) cfg('turnstile', []));
 $tsEnabled = $turnstile->enabled();
 $siteKey   = (string) cfg('turnstile.site_key', '');
 $formToken = Support::makeFormToken(time());
-$honeypot  = (string) cfg('security.honeypot_field', 'company_website');
+$honeypot  = (string) cfg('security.honeypot_field', 'hp_check_field');
 $testMode  = Support::testMode($_GET['test'] ?? null);
 $testToken = Support::testToken();
 $today     = date('Y-m-d');
@@ -213,7 +213,7 @@ foreach (FieldMap::BANKS as $k => $m) {
 <meta name="robots" content="noindex, nofollow">
 <title>Employee Information · Legends Global</title>
 <link rel="preconnect" href="https://challenges.cloudflare.com">
-<link rel="stylesheet" href="assets/css/app.css?v=9">
+<link rel="stylesheet" href="assets/css/app.css?v=10">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='13' fill='none' stroke='%23111' stroke-width='5'/></svg>">
 <?php if ($tsEnabled): ?>
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
@@ -246,7 +246,10 @@ foreach (FieldMap::BANKS as $k => $m) {
 <form id="onboarding-form" novalidate autocomplete="on" enctype="multipart/form-data" action="submit.php" method="post">
   <input type="hidden" name="form_token" value="<?= $e($formToken) ?>">
   <?php if ($testMode): ?><input type="hidden" name="test_token" value="<?= $e($testToken) ?>"><?php endif; ?>
-  <div class="hp" aria-hidden="true"><label>Company website<input type="text" name="<?= $e($honeypot) ?>" tabindex="-1" autocomplete="off"></label></div>
+  <!-- Honeypot: hidden bot trap. `readonly` is critical — browser autofill
+       never writes into readonly fields, so real users can't trip it, while
+       naive bots setting every input still do. -->
+  <div class="hp" aria-hidden="true"><label>Leave this field empty<input type="text" name="<?= $e($honeypot) ?>" tabindex="-1" autocomplete="off" readonly></label></div>
 
   <!-- STEP 1: WELCOME -->
   <section class="step" data-step="0" aria-label="Welcome">
@@ -504,11 +507,11 @@ foreach (FieldMap::BANKS as $k => $m) {
 
 <template id="contact-template"><?php contactBlock('__I__', false); ?></template>
 
-<div class="overlay" id="successOverlay" hidden><div class="success-card"><div class="success-icon">✓</div><h2>Submission received</h2><p>Thank you. Your information has been encrypted and sent securely to Human Resources.</p><p class="ref">Reference: <strong id="successRef"></strong></p><p class="muted">You may now close this window.</p></div></div>
+<div class="overlay" id="successOverlay" hidden><div class="success-card"><div class="success-icon">✓</div><h2>Submission received</h2><p>Thank you. Your information has been encrypted and sent securely to Human Resources.</p><p class="ref">Reference: <strong id="successRef"></strong></p><p class="muted notewarn" id="successNote" hidden></p><p class="muted">You may now close this window.</p></div></div>
 <div class="overlay" id="sendingOverlay" hidden><div class="success-card"><div class="spinner"></div><h2>Encrypting &amp; sending…</h2><p class="muted">This can take a moment while your documents are packaged securely.</p></div></div>
 </main>
 
 <footer class="foot"><span>Legends Global · Confidential</span><span>Need help? Contact Human Resources.</span></footer>
-<script src="assets/js/app.js?v=9" defer></script>
+<script src="assets/js/app.js?v=10" defer></script>
 </body>
 </html>
