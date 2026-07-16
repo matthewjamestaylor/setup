@@ -77,7 +77,6 @@ return [
     //     php -r "echo bin2hex(random_bytes(12)).PHP_EOL;"
     'package' => [
         'passphrase'      => env('PACKAGE_PASSPHRASE', ''),   // REQUIRED
-        'filename_prefix' => 'LegendsGlobal-NewHire',
     ],
 
     // ----- Cloudflare Turnstile (bot protection) ---------------------------

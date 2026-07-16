@@ -37,7 +37,6 @@ require dirname(__DIR__) . '/app/bootstrap.php';
 
 use Legends\Validator;
 use Legends\PdfBuilder;
-use Legends\TextBuilder;
 use Legends\Packager;
 use Legends\Mailer;
 use Legends\Turnstile;
@@ -161,12 +160,9 @@ try {
     ];
 
     $pdfPath = (new PdfBuilder($result['data'], $result['files'], $result['signature'], $meta))->render($workDir);
-    $textExport = (new TextBuilder($result['data'], $result['files'], $meta))->build();
 
-    $package = (new Packager(
-        (string) cfg('package.passphrase', ''),
-        (string) cfg('package.filename_prefix', 'LegendsGlobal-NewHire')
-    ))->build($result['data'], $pdfPath, $result['files'], $meta, $workDir, $textExport);
+    $package = (new Packager((string) cfg('package.passphrase', '')))
+        ->build($result['data'], $pdfPath, $result['files'], $meta, $workDir);
 
     $note = (new Mailer((array) cfg('mail', []), (array) cfg('hr', [])))->send($package, $result['data'], $meta, $isTest);
 

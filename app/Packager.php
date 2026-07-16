@@ -14,7 +14,24 @@ namespace Legends;
  */
 final class Packager
 {
-    public function __construct(private string $passphrase, private string $filenamePrefix)
+    /**
+     * Two-letter document codes used in attachment filenames, per HR's filing
+     * convention: "<CODE> - <Employee Name>.<ext>" inside Attachments/.
+     * permit_document maps to WP or SP depending on the permit type.
+     */
+    private const DOC_CODES = [
+        'headshot'            => 'HS',
+        'dd_document'         => 'DD',
+        'sin_document'        => 'WE',
+        'gov_document'        => 'ID',
+        'ircc_document'       => 'EP',
+        'smartserve_document' => 'SS',
+        'foodsafety_document' => 'FS',
+        'jhsc1_document'      => 'J1',
+        'jhsc2_document'      => 'J2',
+    ];
+
+    public function __construct(private string $passphrase)
     {
     }
 
@@ -26,7 +43,7 @@ final class Packager
      * @param string $workDir
      * @return array ['path'=>string, 'filename'=>string, 'method'=>string, 'encrypted'=>bool]
      */
-    public function build(array $data, string $pdfPath, array $files, array $meta, string $workDir, string $textExport = ''): array
+    public function build(array $data, string $pdfPath, array $files, array $meta, string $workDir): array
     {
         if ($this->passphrase === '') {
             throw new \RuntimeException('Package passphrase is not configured.');
@@ -35,32 +52,23 @@ final class Packager
             throw new \RuntimeException('The PHP zip extension (ext-zip) is required to package submissions.');
         }
 
-        $person = $this->personSlug($data);
-        $date   = substr((string) ($meta['reference_date'] ?? date('Y-m-d')), 0, 10);
-        $ref    = (string) ($meta['reference'] ?? Support::token(3));
-        $stem   = "{$this->filenamePrefix}_{$person}_{$date}_{$ref}";
+        $person = $this->personName($data);
+        $stem   = "NHD - {$person}";
 
-        // Ordered list of members to place in the archive.
+        // Archive layout (HR filing convention):
+        //   <Name>.pdf                         — the details form
+        //   Attachments/<CODE> - <Name>.<ext>  — each uploaded document
+        // Note: AES-ZIP leaves member names visible without the passphrase;
+        // carrying the employee's name in them is HR's explicit choice.
         $members = [];
-        $members[] = ['name' => 'Employee-Information.pdf', 'src' => $pdfPath];
-
-        // AES-ZIP does not encrypt the central directory (filenames are visible
-        // without the passphrase), so member names carry the document type only
-        // — not the employee's name. The name lives inside the encrypted PDF and
-        // manifest, and in the email subject/attachment for HR routing.
-        $i = 1;
-        foreach ($files as $f) {
-            $labelSlug = $this->slug($f['label']);
-            $name = sprintf('%02d_%s.%s', $i, $labelSlug, $f['ext']);
-            $members[] = ['name' => $name, 'src' => $f['path']];
-            $i++;
+        $members[] = ['name' => "{$person}.pdf", 'src' => $pdfPath];
+        foreach ($files as $key => $f) {
+            $code = self::DOC_CODES[$key]
+                ?? ($key === 'permit_document'
+                    ? (($data['permit_type'] ?? '') === 'study' ? 'SP' : 'WP')
+                    : strtoupper(substr($this->slug($f['label']), 0, 2)));
+            $members[] = ['name' => "Attachments/{$code} - {$person}.{$f['ext']}", 'src' => $f['path']];
         }
-        // Copy-paste-friendly plain-text summary (for Workday entry).
-        if ($textExport !== '') {
-            $members[] = ['name' => 'Employee-Information.txt', 'string' => $textExport];
-        }
-        // Human-readable manifest inside the archive.
-        $members[] = ['name' => 'README.txt', 'string' => $this->manifest($data, $files, $meta)];
 
         $aesAvailable = defined('ZipArchive::EM_AES_256') && class_exists('ZipArchive');
 
@@ -152,34 +160,12 @@ final class Packager
         file_put_contents($dest, "LGENC1\n" . $salt . $iv . $tag . $ct);
     }
 
-    private function manifest(array $data, array $files, array $meta): string
+    /** "First Last", stripped of filesystem-invalid characters. */
+    private function personName(array $data): string
     {
-        $name = trim(($data['first_name'] ?? '') . ' ' . ($data['last_name'] ?? ''));
-        $lines = [];
-        $lines[] = 'LEGENDS GLOBAL — New Hire Onboarding Submission';
-        $lines[] = str_repeat('=', 48);
-        $lines[] = 'Employee : ' . $name;
-        $lines[] = 'Submitted: ' . ($meta['timestamp'] ?? '');
-        $lines[] = 'Reference: ' . ($meta['reference'] ?? '');
-        $lines[] = '';
-        $lines[] = 'This archive is CONFIDENTIAL and encrypted. It contains:';
-        $lines[] = '  - Employee-Information.pdf  (full submission summary)';
-        foreach ($files as $f) {
-            $lines[] = '  - ' . $f['label'] . ' (' . strtoupper($f['ext']) . ')';
-        }
-        $lines[] = '';
-        $lines[] = 'Handle in accordance with the Legends Global privacy policy and';
-        $lines[] = 'applicable privacy legislation (PIPEDA / Ontario). Store only in';
-        $lines[] = 'approved secure systems and limit access to authorized personnel.';
-        return implode("\r\n", $lines);
-    }
-
-    private function personSlug(array $data): string
-    {
-        $last  = $this->slug((string) ($data['last_name'] ?? ''));
-        $first = $this->slug((string) ($data['first_name'] ?? ''));
-        $slug = trim($last . '-' . $first, '-');
-        return $slug === '' ? 'NewHire' : $slug;
+        $name = Support::oneLine(($data['first_name'] ?? '') . ' ' . ($data['last_name'] ?? ''));
+        $name = trim((string) preg_replace('/[\\\\\/:*?"<>|\x00-\x1F]+/', '', $name));
+        return $name === '' ? 'New Hire' : mb_substr($name, 0, 60);
     }
 
     private function slug(string $s): string

@@ -108,9 +108,8 @@ final class Mailer
             }
 
             $employee = trim(($data['first_name'] ?? '') . ' ' . ($data['last_name'] ?? '')) ?: 'New Hire';
-            $date = substr((string) ($meta['timestamp'] ?? date('Y-m-d')), 0, 10);
 
-            $mail->Subject = ($isTest ? '[TEST] ' : '') . "New Hire Submission — {$employee} — {$date}";
+            $mail->Subject = ($isTest ? "[TEST] " : "") . "New Hire Setup Package - {$employee}";
             $mail->isHTML(true);
             $mail->Body    = $this->htmlBody($employee, $data, $meta, $package);
             $mail->AltBody = $this->textBody($employee, $data, $meta, $package);
