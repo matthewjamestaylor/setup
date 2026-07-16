@@ -1,35 +1,23 @@
-# Fallback rules if the subdomain Document Root is set to the REPOSITORY ROOT
-# instead of the recommended public/ folder.
+# Safety net used ONLY when the subdomain's Document Root points at the
+# REPOSITORY ROOT instead of the recommended public/ folder.
 #
-# RECOMMENDED: point setup.rclegends.ca's Document Root at the public/ folder,
-# in which case this file is never used. These rules are a safety net only.
+# IMPORTANT: every rule in this file must be URI-based (RedirectMatch /
+# mod_rewrite). Directory-scoped rules like <FilesMatch> + Require cascade
+# into every subfolder — including public/ — even when public/ IS the
+# document root, because the server merges .htaccess files from parent
+# directories downward. A FilesMatch that denied *.php here once blocked
+# public/submit.php on the live host with a bare 403 on every submission.
 
 Options -Indexes
 
-# Block direct web access to application internals.
+# Application internals must never be web-addressable.
 RedirectMatch 403 (?i)^/(app|vendor|config|storage|tools|tests)(/|$)
+RedirectMatch 403 (?i)^/(readme\.md|composer\.(json|lock))$
+RedirectMatch 403 ^/\.
 
-<FilesMatch "(?i)\.(php|md|json|lock|sample|dist|ini|log|sh)$">
-    <IfModule mod_authz_core.c>
-        Require all denied
-    </IfModule>
-    <IfModule !mod_authz_core.c>
-        Order allow,deny
-        Deny from all
-    </IfModule>
-</FilesMatch>
-
-# Allow the front-controller redirect (index.php) to run.
-<FilesMatch "^index\.php$">
-    <IfModule mod_authz_core.c>
-        Require all granted
-    </IfModule>
-</FilesMatch>
-
-# Route everything to public/ when this is the document root.
+# Serve the app from public/ when this folder is the document root.
 <IfModule mod_rewrite.c>
     RewriteEngine On
-    RewriteRule ^$ public/ [L]
     RewriteCond %{REQUEST_URI} !^/public/
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteRule ^(.*)$ public/$1 [L]
