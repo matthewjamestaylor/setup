@@ -314,10 +314,21 @@
   var camStart = document.getElementById('camStart'), camCapture = document.getElementById('camCapture'), camRetake = document.getElementById('camRetake');
   var video = document.getElementById('camVideo'), canvas = document.getElementById('camCanvas'), guide = document.getElementById('camGuide'), placeholder = document.getElementById('camPlaceholder');
   if (camStart) camStart.addEventListener('click', function () {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      placeholder.textContent = 'Camera requires a secure (https) connection — please upload a photo instead.';
+      return;
+    }
     navigator.mediaDevices.getUserMedia({ video: { width: 720, height: 960, facingMode: 'user' } }).then(function (s) {
       cam.stream = s; video.srcObject = s; video.hidden = false; guide.hidden = false; placeholder.hidden = true; video.play();
       camStart.hidden = true; camCapture.hidden = false;
-    }).catch(function () { placeholder.textContent = 'Camera unavailable — please upload a photo instead.'; });
+    }).catch(function (err) {
+      var name = err && err.name;
+      placeholder.textContent =
+        name === 'NotAllowedError' ? 'Camera access was blocked. Allow camera for this site in your browser settings, or upload a photo instead.'
+        : name === 'NotFoundError' ? 'No camera was found on this device — please upload a photo instead.'
+        : name === 'NotReadableError' ? 'The camera is in use by another app — close it and try again, or upload a photo.'
+        : 'Camera unavailable — please upload a photo instead.';
+    });
   });
   if (camCapture) camCapture.addEventListener('click', function () {
     var w = 720, h = 960; canvas.width = w; canvas.height = h;
