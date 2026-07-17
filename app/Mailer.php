@@ -176,7 +176,8 @@ final class Mailer
             . ($package['method'] === 'zip-aes256'
                 ? '<div style="margin:0 0 18px;padding:12px 14px;background:#fdf6e3;border:1px solid #f0e2b6;border-radius:6px;font-size:13px;">'
                     . '<strong>Windows users:</strong> Windows\' built-in ZIP extractor cannot open AES-encrypted archives '
-                    . '(it fails with &ldquo;error 0x80004005&rdquo;). Use the free <a href="https://www.7-zip.org">7-Zip</a>: '
+                    . '(it fails with &ldquo;error 0x80004005&rdquo;). Use the free <a href="https://www.7-zip.org">7-Zip</a> '
+                    . '(<a href="https://github.com/ip7z/7zip/releases/download/26.02/7z2602-x64.exe">direct download — 64-bit Windows installer</a>): '
                     . 'right-click the file → 7-Zip → Extract Here, then enter the passphrase. '
                     . 'On a Mac, Keka or The Unarchiver works if the built-in tool cannot open it.'
                     . '</div>'
@@ -207,6 +208,8 @@ final class Mailer
         $l[] = 'AES-encrypted archives (it fails with error 0x80004005).';
         $l[] = 'Use the free 7-Zip (www.7-zip.org): right-click the file ->';
         $l[] = '7-Zip -> Extract Here, then enter the passphrase.';
+        $l[] = 'Direct download (64-bit Windows installer):';
+        $l[] = '  https://github.com/ip7z/7zip/releases/download/26.02/7z2602-x64.exe';
         $l[] = '';
         $l[] = 'Confidential — handle per the Legends Global privacy policy.';
         return implode("\r\n", $l);
