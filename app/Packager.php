@@ -19,7 +19,7 @@ final class Packager
      * convention: "<CODE> - <Employee Name>.<ext>" inside Attachments/.
      * permit_document maps to WP or SP depending on the permit type.
      */
-    private const DOC_CODES = [
+    public const DOC_CODES = [
         'headshot'            => 'HS',
         'dd_document'         => 'DD',
         'sin_document'        => 'WE',
@@ -52,7 +52,7 @@ final class Packager
             throw new \RuntimeException('The PHP zip extension (ext-zip) is required to package submissions.');
         }
 
-        $person = $this->personName($data);
+        $person = self::personName($data);
         $stem   = "NHD - {$person}";
 
         // Archive layout (HR filing convention):
@@ -161,7 +161,7 @@ final class Packager
     }
 
     /** "First Last", stripped of filesystem-invalid characters. */
-    private function personName(array $data): string
+    public static function personName(array $data): string
     {
         $name = Support::oneLine(($data['first_name'] ?? '') . ' ' . ($data['last_name'] ?? ''));
         $name = trim((string) preg_replace('/[\\\\\/:*?"<>|\x00-\x1F]+/', '', $name));
