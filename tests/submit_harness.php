@@ -32,7 +32,16 @@ imageline($s, 15, 70, 320, 60, imagecolorallocate($s, 20, 20, 50)); imagepng($s,
 $sigDataUrl = 'data:image/png;base64,' . base64_encode(file_get_contents("$tmp/sig.png"));
 $hs = imagecreatetruecolor(500, 620); imagefilledrectangle($hs, 0, 0, 500, 620, imagecolorallocate($hs, 220, 225, 232));
 imagefilledellipse($hs, 250, 270, 200, 250, imagecolorallocate($hs, 175, 150, 132)); imagejpeg($hs, "$tmp/hs.jpg", 85); imagedestroy($hs);
-file_put_contents("$tmp/doc.pdf", "%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF");
+// A real, parseable one-page PDF (ghostscript merges it into the package).
+define('FPDF_FONTPATH', $root . '/vendor/fpdf/font/');
+require $root . '/vendor/fpdf/fpdf.php';
+$fp = new FPDF();
+$fp->AddPage();
+$fp->SetFont('Helvetica', '', 14);
+$fp->Cell(0, 10, 'Test document page', 0, 1);
+$fp->Output('F', "$tmp/doc.pdf");
+// A deliberately broken "PDF" for exercising the ZIP fallback (scenario badpdf).
+file_put_contents("$tmp/broken.pdf", "%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF");
 
 $future = (new DateTimeImmutable('+3 years'))->format('Y-m-d');
 
@@ -114,6 +123,11 @@ if ($scenario === 'full') {
     }
     $files['permit_document'] = ['name' => 'permit.pdf', 'type' => 'application/pdf', 'tmp_name' => "$tmp/doc.pdf", 'error' => 0, 'size' => filesize("$tmp/doc.pdf")];
     $files['ircc_document']   = ['name' => 'ircc.pdf', 'type' => 'application/pdf', 'tmp_name' => "$tmp/doc.pdf", 'error' => 0, 'size' => filesize("$tmp/doc.pdf")];
+}
+if ($scenario === 'badpdf') {
+    // A corrupt uploaded PDF must break the PDF merge and trigger the
+    // encrypted-ZIP fallback (never a failed submission).
+    $files['gov_document'] = ['name' => 'id.pdf', 'type' => 'application/pdf', 'tmp_name' => "$tmp/broken.pdf", 'error' => 0, 'size' => filesize("$tmp/broken.pdf")];
 }
 if ($scenario === 'sigfile') {
     // Signature delivered as a multipart file part (the preferred transport)

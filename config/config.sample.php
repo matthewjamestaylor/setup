@@ -70,13 +70,25 @@ return [
     ],
 
     // ----- Encryption of the emailed package -------------------------------
-    // The PDF + all uploaded documents are bundled into a single AES-256
-    // encrypted ZIP. HR opens it with this passphrase (share it out-of-band,
-    // e.g. in person or by phone – NEVER in the same channel as the email).
-    // Use a long, random passphrase. Generate one with:
-    //     php -r "echo bin2hex(random_bytes(12)).PHP_EOL;"
+    // Preferred format: ONE password-protected PDF (the details form followed
+    // by every uploaded document), plus the headshot attached as an image.
+    // Falls back automatically to an AES-256 encrypted ZIP when the host's
+    // PDF tools are unavailable or an uploaded PDF cannot be merged.
+    // HR opens either with this passphrase (share it out-of-band, e.g. in
+    // person or by phone – NEVER in the same channel as the email).
+    // A memorable-but-strong passphrase is fine: 3-4 random words + a number
+    // (e.g. "Maple-Stadium-Coffee-19") beats any short "clever" password.
     'package' => [
-        'passphrase'      => env('PACKAGE_PASSPHRASE', ''),   // REQUIRED
+        'passphrase' => env('PACKAGE_PASSPHRASE', ''),   // REQUIRED
+        'format'     => env('PACKAGE_FORMAT', 'pdf'),    // 'pdf' (preferred) | 'zip'
+    ],
+
+    // ----- External PDF tools ----------------------------------------------
+    // Auto-detected when blank. qpdf (if present) upgrades the PDF encryption
+    // from RC4-128 (ghostscript) to AES-256.
+    'tools' => [
+        'gs'   => env('GS_BIN', ''),
+        'qpdf' => env('QPDF_BIN', ''),
     ],
 
     // ----- Cloudflare Turnstile (bot protection) ---------------------------

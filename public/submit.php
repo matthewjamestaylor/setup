@@ -38,6 +38,7 @@ require dirname(__DIR__) . '/app/bootstrap.php';
 use Legends\Validator;
 use Legends\PdfBuilder;
 use Legends\Packager;
+use Legends\PdfPackager;
 use Legends\Mailer;
 use Legends\Turnstile;
 use Legends\Support;
@@ -161,10 +162,35 @@ try {
 
     $pdfPath = (new PdfBuilder($result['data'], $result['files'], $result['signature'], $meta))->render($workDir);
 
-    $package = (new Packager((string) cfg('package.passphrase', '')))
-        ->build($result['data'], $pdfPath, $result['files'], $meta, $workDir);
+    // Preferred package: ONE password-protected PDF (form + all documents),
+    // with the headshot also attached separately as an image. If the host
+    // tools are unavailable or an uploaded PDF breaks the merge, fall back
+    // to the encrypted ZIP so the submission is never lost.
+    $package = null;
+    $extras  = [];
+    if (cfg('package.format', 'pdf') !== 'zip') {
+        try {
+            $package = (new PdfPackager((string) cfg('package.passphrase', ''), (array) cfg('tools', [])))
+                ->build($result['data'], $pdfPath, $result['files'], $meta, $workDir);
+            if (isset($result['files']['headshot']) && is_file($result['files']['headshot']['path'])) {
+                $hs = $result['files']['headshot'];
+                $extras[] = [
+                    'path' => $hs['path'],
+                    'name' => 'HS - ' . Packager::personName($result['data']) . '.' . $hs['ext'],
+                    'mime' => $hs['mime'],
+                ];
+            }
+        } catch (\Throwable $pdfEx) {
+            error_log('[onboarding] PDF package failed (' . $pdfEx->getMessage() . ') — falling back to encrypted ZIP.');
+            $package = null;
+        }
+    }
+    if ($package === null) {
+        $package = (new Packager((string) cfg('package.passphrase', '')))
+            ->build($result['data'], $pdfPath, $result['files'], $meta, $workDir);
+    }
 
-    $note = (new Mailer((array) cfg('mail', []), (array) cfg('hr', [])))->send($package, $result['data'], $meta, $isTest);
+    $note = (new Mailer((array) cfg('mail', []), (array) cfg('hr', [])))->send($package, $result['data'], $meta, $isTest, $extras);
 
     respond(['ok' => true, 'reference' => $meta['reference']] + ($note !== null ? ['note' => $note] : []));
 } catch (\Throwable $e) {

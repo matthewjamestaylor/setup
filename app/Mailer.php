@@ -32,7 +32,7 @@ final class Mailer
      * (test mode with no test recipient), so the UI can say so instead of
      * looking like a normal send — otherwise null.
      */
-    public function send(array $package, array $data, array $meta, bool $isTest = false): ?string
+    public function send(array $package, array $data, array $meta, bool $isTest = false, array $extras = []): ?string
     {
         $transport = strtolower((string) ($this->mailCfg['transport'] ?? 'smtp'));
         $note = null;
@@ -117,7 +117,14 @@ final class Mailer
             if (!is_file($package['path'])) {
                 throw new \RuntimeException('Encrypted package is missing.');
             }
-            $mail->addAttachment($package['path'], (string) $package['filename'], PHPMailer::ENCODING_BASE64, 'application/octet-stream');
+            $packageMime = str_starts_with((string) $package['method'], 'pdf') ? 'application/pdf' : 'application/octet-stream';
+            $mail->addAttachment($package['path'], (string) $package['filename'], PHPMailer::ENCODING_BASE64, $packageMime);
+            // Extra plain attachments (e.g. the headshot image alongside the PDF).
+            foreach ($extras as $x) {
+                if (is_file($x['path'] ?? '')) {
+                    $mail->addAttachment((string) $x['path'], (string) ($x['name'] ?? basename((string) $x['path'])), PHPMailer::ENCODING_BASE64, (string) ($x['mime'] ?? 'application/octet-stream'));
+                }
+            }
 
             if ($transport === 'log') {
                 // Compose but do not send — write the raw message to disk so the
@@ -173,15 +180,18 @@ final class Mailer
             . 'File: <code>' . $e($package['filename']) . '</code><br>'
             . 'Open it with the shared passphrase (provided separately — never in this email).'
             . '</div>'
-            . ($package['method'] === 'zip-aes256'
-                ? '<div style="margin:0 0 18px;padding:12px 14px;background:#fdf6e3;border:1px solid #f0e2b6;border-radius:6px;font-size:13px;">'
-                    . '<strong>Windows users:</strong> Windows\' built-in ZIP extractor cannot open AES-encrypted archives '
-                    . '(it fails with &ldquo;error 0x80004005&rdquo;). Use the free <a href="https://www.7-zip.org">7-Zip</a> '
-                    . '(<a href="https://github.com/ip7z/7zip/releases/download/26.02/7z2602-x64.exe">direct download — 64-bit Windows installer</a>): '
-                    . 'right-click the file → 7-Zip → Extract Here, then enter the passphrase. '
-                    . 'On a Mac, Keka or The Unarchiver works if the built-in tool cannot open it.'
-                    . '</div>'
-                : '<p style="font-size:13px;color:#555;">See the decryption note included with your onboarding setup instructions.</p>')
+            . (str_starts_with((string) $package['method'], 'pdf')
+                ? '<p style="font-size:13px;color:#555;">The PDF opens in any viewer (Adobe, Edge, Preview) — enter the passphrase when prompted. '
+                    . 'It contains the details form followed by every submitted document; the headshot is also attached separately as an image.</p>'
+                : ($package['method'] === 'zip-aes256'
+                    ? '<div style="margin:0 0 18px;padding:12px 14px;background:#fdf6e3;border:1px solid #f0e2b6;border-radius:6px;font-size:13px;">'
+                        . '<strong>Windows users:</strong> Windows\' built-in ZIP extractor cannot open AES-encrypted archives '
+                        . '(it fails with &ldquo;error 0x80004005&rdquo;). Use the free <a href="https://www.7-zip.org">7-Zip</a> '
+                        . '(<a href="https://github.com/ip7z/7zip/releases/download/26.02/7z2602-x64.exe">direct download — 64-bit Windows installer</a>): '
+                        . 'right-click the file → 7-Zip → Extract Here, then enter the passphrase. '
+                        . 'On a Mac, Keka or The Unarchiver works if the built-in tool cannot open it.'
+                        . '</div>'
+                    : '<p style="font-size:13px;color:#555;">See the decryption note included with your onboarding setup instructions.</p>'))
             . '<p style="color:#999;font-size:12px;margin-top:18px;">This message and its attachment contain confidential personal information. '
             . 'Handle per the Legends Global privacy policy and applicable privacy law. Nothing is stored on the web application — this email is the only copy.</p>'
             . '</div>';
@@ -204,12 +214,19 @@ final class Mailer
         $l[] = '  ' . $package['filename'];
         $l[] = 'Open it with the shared passphrase (provided separately).';
         $l[] = '';
-        $l[] = 'WINDOWS USERS: Windows\' built-in ZIP extractor cannot open';
-        $l[] = 'AES-encrypted archives (it fails with error 0x80004005).';
-        $l[] = 'Use the free 7-Zip (www.7-zip.org): right-click the file ->';
-        $l[] = '7-Zip -> Extract Here, then enter the passphrase.';
-        $l[] = 'Direct download (64-bit Windows installer):';
-        $l[] = '  https://github.com/ip7z/7zip/releases/download/26.02/7z2602-x64.exe';
+        if (str_starts_with((string) $package['method'], 'pdf')) {
+            $l[] = 'The PDF opens in any viewer (Adobe, Edge, Preview) — enter the';
+            $l[] = 'passphrase when prompted. It contains the details form followed';
+            $l[] = 'by every submitted document; the headshot is also attached';
+            $l[] = 'separately as an image.';
+        } else {
+            $l[] = 'WINDOWS USERS: Windows\' built-in ZIP extractor cannot open';
+            $l[] = 'AES-encrypted archives (it fails with error 0x80004005).';
+            $l[] = 'Use the free 7-Zip (www.7-zip.org): right-click the file ->';
+            $l[] = '7-Zip -> Extract Here, then enter the passphrase.';
+            $l[] = 'Direct download (64-bit Windows installer):';
+            $l[] = '  https://github.com/ip7z/7zip/releases/download/26.02/7z2602-x64.exe';
+        }
         $l[] = '';
         $l[] = 'Confidential — handle per the Legends Global privacy policy.';
         return implode("\r\n", $l);
