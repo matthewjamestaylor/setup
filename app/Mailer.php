@@ -171,11 +171,17 @@ final class Mailer
             . '<div style="margin:18px 0;padding:12px 14px;background:#f4f6f8;border:1px solid #e2e6ea;border-radius:6px;">'
             . '<strong>🔒 The full submission is in the encrypted attachment.</strong><br>'
             . 'File: <code>' . $e($package['filename']) . '</code><br>'
-            . 'Open it with the shared passphrase (provided separately — never in this email). '
-            . ($package['method'] === 'zip-aes256'
-                ? 'This is an AES-256 encrypted ZIP; use 7-Zip (Windows) or Keka/The Unarchiver (Mac) if your built-in tool cannot open it.'
-                : 'See the decryption note included with your onboarding setup instructions.')
+            . 'Open it with the shared passphrase (provided separately — never in this email).'
             . '</div>'
+            . ($package['method'] === 'zip-aes256'
+                ? '<div style="margin:0 0 18px;padding:12px 14px;background:#fdf6e3;border:1px solid #f0e2b6;border-radius:6px;font-size:13px;">'
+                    . '<strong>Windows users:</strong> Windows\' built-in ZIP extractor cannot open AES-encrypted archives '
+                    . '(it fails with &ldquo;error 0x80004005&rdquo;). Use the free <a href="https://www.7-zip.org">7-Zip</a> '
+                    . '(<a href="https://github.com/ip7z/7zip/releases/download/26.02/7z2602-x64.exe">direct download — 64-bit Windows installer</a>): '
+                    . 'right-click the file → 7-Zip → Extract Here, then enter the passphrase. '
+                    . 'On a Mac, Keka or The Unarchiver works if the built-in tool cannot open it.'
+                    . '</div>'
+                : '<p style="font-size:13px;color:#555;">See the decryption note included with your onboarding setup instructions.</p>')
             . '<p style="color:#999;font-size:12px;margin-top:18px;">This message and its attachment contain confidential personal information. '
             . 'Handle per the Legends Global privacy policy and applicable privacy law. Nothing is stored on the web application — this email is the only copy.</p>'
             . '</div>';
@@ -197,6 +203,13 @@ final class Mailer
         $l[] = 'The full submission is in the encrypted attachment:';
         $l[] = '  ' . $package['filename'];
         $l[] = 'Open it with the shared passphrase (provided separately).';
+        $l[] = '';
+        $l[] = 'WINDOWS USERS: Windows\' built-in ZIP extractor cannot open';
+        $l[] = 'AES-encrypted archives (it fails with error 0x80004005).';
+        $l[] = 'Use the free 7-Zip (www.7-zip.org): right-click the file ->';
+        $l[] = '7-Zip -> Extract Here, then enter the passphrase.';
+        $l[] = 'Direct download (64-bit Windows installer):';
+        $l[] = '  https://github.com/ip7z/7zip/releases/download/26.02/7z2602-x64.exe';
         $l[] = '';
         $l[] = 'Confidential — handle per the Legends Global privacy policy.';
         return implode("\r\n", $l);
